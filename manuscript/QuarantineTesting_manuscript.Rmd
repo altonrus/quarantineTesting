@@ -37,15 +37,17 @@ W. Alton Russell, MS^1^, David L. Buckeridge, MD, PhD, FRCPC^2^
 
 # Corresponding author
 
-Name
+W. Alton Russell
 
-Street Address
+Department of Management Science and Engineering
 
-City, State ZIP
+475 Via Ortega
 
-Phone
+Stanford, CA 94305
 
-Email
+438-408-7290
+
+altonr@stanford.edu
 
 #####
 
@@ -115,6 +117,20 @@ dt_scenarios[ , scenario := factor(scenario,
 #Incubation time from Lauer 2020 bootstrapped posteriors
 incubation_dist_fit_lnorm <- readRDS("../incubation_dists/ncov_inc_fit_boot.rds")
 dt_incubation_dists_lnorm <- data.table(incubation_dist_fit_lnorm@samples)
+# 
+# temp <- sim_quarantine_lnorm(
+#     dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
+#     params = params)
+# 
+# temp2 <- sim_calc_metrics(
+#   dt_raw_metrics = temp,
+#   params = params,
+#   prev_levels = c(1),
+#   scenario = "Blank"
+# )
+# temp2[, c("scenario", "prev", "metric") := NULL]
+# 
+# saveRDS(temp2, file = "../sim_dat_raw.RDS")
 
 
 #Create scenarios
@@ -330,50 +346,48 @@ fwrite(dt_scenarios, file = "../scenarios.csv")
 
 # Key words
 
-
+SARS-CoV-2, COVID-19, travel and immigration policy, quarantine and isolation
 
 <br> 
 
 # Declarations
 
-**Funding:** 
+**Funding:** WAR was funded by a Stanford Interdisciplinary Graduate Fellowship
 
-**Conflicts:** 
+**Conflicts:** The authors have no conflicts to disclose
 
-**Ethics/Consent:** 
+**Ethics/Consent:** This analysis was based on public data and exempt from institutional ethics review.
 
-**Data and materials:** 
+**Data and materials:** All data and materials have been uploaded to a public repository.
 
-**Code availability:** 
+**Code availability:** All code has been uploaded to a public repository.
 
-**Authors’ contributions:** 
+**Authors’ contributions:** Both authors participated in the study design and analysis. WAR drafted the manuscript, which DLB critically revised.
 
 
 #####
 
 # Background
 
-> COVID-19 outbreaks seeded by arriving travelers are concerning to all countries, particularly those with low community transmission. How to manage risk of SARS-CoV-2 transmission from arriving travelers is a critical policy question. A recent study estimated the distribution of incubation time for SARS-CoV-2 and conducted a probabilistic analysis of the number of symptomatic infections missed by active monitoring [@Lauer2020]. While relevant, their analysis did not consider transmission by asymptomatic and presymptomatic travelers, the role of non-compliance, nor the possible use of testing, limiting applicability to policy decisions around arriving travelers.
+> COVID-19 outbreaks caused by infected arriving travelers are a concern for all countries, particularly those with low community transmission. Consequently, the approach to managing the risk of SARS-CoV-2 transmission from arriving travelers is a critical policy question. A recent study estimated the number of symptomatic infections missed by active monitoring of arriving travelers, accounting for the distribution of SARS-CoV-2 incubation times [@Lauer2020]. While informative, the applicability of this analysis to policy decisions is limited because it did not consider factors such as transmission by asymptomatic and pre-symptomatic travelers, the role of non-compliance, and the use of testing.
 
 
 # Objective
 
-> We extended the prior analysis by evaluating policies that employ testing in addition to quarantine, by considering risk of presymptomatic and asymptomatic transmission, and by evaluating how quarantine and isolation compliance ifluenced community risk.
+> We evaluated policies of quarantine and testing of arriving travelers and examined the sensitivity of policy choices to assumptions about pre-symptomatic and asymptomatic transmission, test sensitivity, and quarantine and isolation compliance.
 
 # Methods and findings
 
-> We compared the impact of 0 -- 14 days of mandatory quarantine on the expected number of days at risk of community transmission per infected traveler (i.e., days when infectious and not in quarantine or isolation). In the base scenario, we assumed 80% of travelers quarantined, 80% isolated when symptomatic, 90% isolated after testing positive without symptoms, and 100% isolated after testing positive when symptomatic. For scenarios with testing we assumed PCR testing 24 hours before the end of quarantine and we assumed travelers who did not comply with quarantine were not tested. We assumed a sensitivity of 70% in presymptomatic- and symptomatic-infectious individuals and 60% in asymptomatic-infectious individuals (sensitivity for asymptomatic infections is poorly understood but possibly lower).
+> We compared policies of mandatory quarantine (0 -- 14 days) alone and combined with testing. For each policy we assessed the expected number of days at risk of community transmission per infected traveler (i.e., days when a person is infectious in the community because they are not in quarantine or isolation). In the base scenario, we assumed 80% of travelers were compliant with quarantine, 80% isolated when symptomatic, 90% isolated after testing positive without symptoms, and 100% isolated after testing positive when symptomatic. For scenarios with testing we assumed antigen testing was performed 24 hours before the end of quarantine and that travelers who did not comply with quarantine were not tested. We assumed a test sensitivity of 70% in pre-symptomatic and symptomatic infectious individuals and 60% in asymptomatic-infectious individuals [@Bisoffi2020].
 
-> We used code from Lauer 2020 to sample 1,000 bootstrapped lognormal parameters for the incubation time distribution [@Lauer2020]. Following Moghadas 2020, we used gamma distributions for the durations of asymptomatic-infectious, presymptomatic-infectious, and symptomatic-infectious phases, and we truncated the presymptomatic-infectious distribution  from 0.8 to 3 days [@Moghadas2020]. We introduced uncertainty into distributions from Moghadas 2020 by varying the mean and standard deviation uniformly by ±20% and sampled 1000 parameter sets for each distribution (Figure S1). For 1,000 sets of duration distributions, we simulated 1000 travelers with asymptomatic infection and determined the time infectiousness began ($t=t_i$) and the time infectiousness ended ($t_r$), and we simulated 6000 travelers with symptomatic infection for whom we determined the time symptoms began ($t_s$) in addition to $t_i$ and $t_r$. At arrival ($t=u$), infected travelers were equally likely to be at any point of their infection from $t-0$ to $t_r$. Using expressions in the supplement, we calculated the average days at risk across all infected travelers and calculated the expected value by weighting by the percent asymptomatic infections (24% in base scenario; average of two values used in [@Moghadas2020]).
+> We used code from Lauer 2020 to sample 1,000 bootstrapped lognormal parameters for the incubation time distribution [@Lauer2020]. Following Moghadas 2020, we used gamma distributions for the durations of asymptomatic-infectious, pre-symptomatic-infectious, and symptomatic-infectious phases, and we truncated the pre-symptomatic-infectious distribution  from 0.8 to 3 days [@Moghadas2020]. We introduced uncertainty by varying the distributions' mean and variance uniformly by ±20%, and we sampled 1000 parameter sets for each distribution (Figure S1). For each of the 1,000 sets of duration distributions, we simulated 1,000 travelers with asymptomatic infection and 6,000 travelers with symptomatic infection. We determined the time each simulated traveler first became infectious, recovered from being infectious, and first developed symptoms (only for those with symptomatic infections). We assumed that arriving travelers were equally likely to be at any point of their infection. Using expressions described in the supplement, we calculated the average days at risk across all infected travelers assuming 24% of infections were asymptomatic in the base scenario [@Moghadas2020]. All data and code are public [CITE_ZENODO].
 
-> In the base scenario, infected travelers were at risk of community transmission 1.7 -- 2.1 days on average (Figure 1; Table S2). Even a two-day quarantine (1.1 -- 1.5 days at risk) was more effective than testing alone (1.5 -- 1.8 days at risk). The addition of testing had diminishing benefit as the length of quarantine increased (reduction of 0.2, 0.06, and 0.003 days at risk for 2, 7, and 14-day quarantine, respectively). Compliance greatly influenced risk: a 14-day quarantine resulted in 1.3 - 1.6 days at risk assuming low compliance compared to 0 - 0.03 days assuming perfect compliance. If travelers were infected immediately before arriving, the days at risk would be 60% higher than the basecase assuming no intervention, and testing without quarantine would have little benefit.
-
-> As shown in Figure 2, the person-days at risk of community transmission per 10,000 infected travelers depends on the prevalence. The expected number of secondary infections per 10,000 travelers depends on both prevalence and the rate of secondary infections per infected day in the community.
+> In the base scenario, infected travelers were at risk of community transmission 1.7 -- 2.1 days on average with no intervention (Figure 1; Table S2). Assuming a prevalence of 1 active infection per 10,000 travelers and a secondary infection rate of 0.5 per person-day at risk of community transmission, this translated to 8.5 -- 10.4 secondary cases per 10,000 travelers (Figure 2). Even a two-day quarantine was more effective than testing alone (1.1 -- 1.5 days at risk with two-day quarantine vs. 1.5 -- 1.8 with testing alone). Testing had diminishing benefit as the length of quarantine increased (reduction of 0.2, 0.06, and 0.003 days at risk for 2, 7, and 14-day quarantine, respectively). Compliance greatly influenced risk: a 14-day quarantine resulted in 1.3 - 1.6 days at risk assuming low compliance compared to 0 - 0.03 days assuming perfect compliance. If travelers were infected immediately before arriving, their days at risk would be 60% higher than the base scenario assuming no intervention, and testing without quarantine would have little benefit. At the population level, person-days at risk of secondary infection was linear in prevalence (Figure S2). We created a web application where users can customize parameter values and run the analysis [CITE_SHINYAPP]
 
 
 # Discussion
 
-> Quarantine is more effective than testing to reduce risk of transmission from arriving travelers. Testing can add value when longer quarantine is infeasible, but the benefits of testing diminish with quarantine length. Measures to increase compliance with quarantine and isolation guidelines can significantly reduce risk. We did not consider household transmission during quarantine, a substantial risk for countries with less strict quarantine requirements. 
+> To reduce the risk of SARS-CoV-2 transmission from arriving travelers, quarantine is more effective than testing alone. Testing can add value when longer quarantine is infeasible, but the benefits of testing diminish with quarantine length. Measures to increase compliance with quarantine and isolation can significantly reduce risk. We did not consider household transmission during quarantine, a substantial risk for countries with less strict quarantine enforcement. 
 
 
 
@@ -382,10 +396,9 @@ fwrite(dt_scenarios, file = "../scenarios.csv")
 
 ```{r fig_1, include = FALSE}
 
-
+dt_scenarios[ , testing := factor(testing)]
 dt_scenarios[scenario == "Asymptomatic sensitivity 30%", scenario := "Asympt. sensitivity 30%"]
 dt_scenarios_infected <- dt_scenarios[prev == 1]
-
 
 
   
@@ -399,7 +412,7 @@ plt_1 <-    ggplot(data = dt_scenarios_infected)+
       ylab("Days at risk of community transmission per infected traveler")+
       scale_color_discrete(name="Quarantine length (days)")+
       scale_x_discrete(labels = c("No test", "Test"))+
-      geom_line(aes(x = testing, y = q0.5, group = factor(dur_q), color = factor(dur_q)), linetype="dashed")+
+      geom_line(aes(x = testing, y = q0.5, group = factor(dur_q), color = factor(dur_q)), linetype="dashed", position = position_dodge(width = 0.2))+
       theme(legend.position = "bottom")
 
 ggsave(
@@ -421,59 +434,13 @@ ggsave(
 <!---BLOCK_LANDSCAPE_STOP--->
 
 
+
+
+
 ```{r fig_2, include = FALSE}
-prev.labs <- c("Pr = 1 in 100", "Pr = 1 in 1,000", "Pr = 1 in 10,000")
-names(prev.labs) <- c(1/100, 1/1000, 1/10000)
-dt_scenarios[ , prev := factor(prev)]
 
-# plt_scenario <- function(scenario_name, dt_scenarios){
-#   return(
-#     ggplot(data = dt_scenarios[scenario == scenario_name])+
-#       geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, color = factor(dur_q), group = factor(dur_q)),
-#                       position = position_dodge(width = 0.2))+
-#       facet_wrap(cols=vars(prev), labeller = labeller(prev = prev.labs))+
-#       xlab("")+
-#       ylab("Person-days at risk per 10,000 travelers")+
-#       scale_color_discrete(name="Quarantine length (days)")+
-#       scale_x_discrete(labels = c("No test", "Test"))+
-#       geom_line(aes(x = testing, y = q0.5, group = factor(dur_q), color = factor(dur_q)), linetype="dashed")+
-#       theme(legend.position = "bottom")+
-#       #scale_y_log10(limits = c(min(dt_scenarios$q0.01), max(dt_scenarios$q0.99)))+
-#       ggtitle(scenario_name)
-#   )
-# }
+dt_scenarios[ , testing := factor(testing)]
 
-
-plt_persondays <-  ggplot(data = dt_scenarios[scenario == "Base scenario" & prev != 1])+
-      geom_pointrange(aes(x = testing, y = q0.5*1e4, ymin = q0.01*1e4, ymax = q0.99*1e4, color = factor(dur_q), group = factor(dur_q)),
-                      position = position_dodge(width = 0.2))+
-      facet_wrap(facets=vars(prev), labeller = labeller(prev = prev.labs), scales = "free_y")+
-      xlab("")+
-      ylab("Person-days at risk\nper 10,000 travelers")+
-      scale_color_discrete(name="Quarantine length (days)")+
-      scale_x_discrete(labels = c("No test", "Test"))+
-      geom_line(aes(x = testing, y = q0.5*1e4, group = factor(dur_q), color = factor(dur_q)), linetype="dashed")+
-      theme(legend.position = "bottom")
-
-
-ggsave(
-  "figs/fig2.png",
-  width = 6.5,
-  height = 2.5,
-  units = "in"
-)
-
-```
-
-
-::: {custom-style="Compact"}
-| **Fig. 2** Person-days at risk of community transmission per 10,000 arriving travelers for each policy by SARS-CoV-2 prevalence among travelers (base scenario). Points indicates the median and bars indicate 98% credible interval for each estimate. Abbreviations: Pr, prevalence of pre-infectious or infectiousness with SARS-CoV-2.
-:::
-
-![](figs/fig2.png)
-
-
-```{r fig_3, include = FALSE}
 secondary.labs <- c("0.1 infections/day",
                     "0.5 infections/day",
                     "1.0 infections/day")
@@ -497,11 +464,11 @@ plt_secondarycases <-  ggplot(data = dt_secondary)+
       ylab("Secondary infections\nper 10,000 travelers")+
       scale_color_discrete(name="Quarantine length (days)")+
       scale_x_discrete(labels = c("No test", "Test"))+
-      geom_line(aes(x = testing, y = q0.5, group = factor(dur_q), color = factor(dur_q)), linetype="dashed")+
+      geom_line(aes(x = testing, y = q0.5, group = factor(dur_q), color = factor(dur_q)), linetype="dashed", position = position_dodge(width = 0.2))+
       theme(legend.position = "bottom")
 
 ggsave(
-  "figs/fig3.png",
+  "figs/fig2.png",
   width = 6.5,
   height = 2.5,
   units = "in"
@@ -512,10 +479,10 @@ ggsave(
 <br>
 
 ::: {custom-style="Compact"}
-| **Fig. 3** Secondary cases per 10,000 travelers for each policy by expected number of secondary infections per infectious person-day in community (base scenario). Assuming SARS-CoV-2 prevalence of 1 in 1,000 travelers. Points indicates the median and bars indicate 98% credible interval for each estimate.
+| **Fig. 2** Secondary cases per 10,000 travelers for each policy by expected number of secondary infections per infectious person-day in community (base scenario). Assuming SARS-CoV-2 prevalence of 1 in 1,000 travelers. Points indicates the median and bars indicate 98% credible interval for each estimate.
 :::
 
-![](figs/fig3.png)
+![](figs/fig2.png)
 
 #####
 
@@ -545,13 +512,13 @@ $$
 [(1-P_{q})(t_{r} - \max(t_i, u))]^+ + [P_{q} (t_r - \max(t_i, u+d))]^+
 $$
 
-> In policies with testing, we assume those who do not comply with quarantine also do not receive testing. Those who are compliant are tested 1 day before quarantine end ($u+d-1$). If they are tested before infectious ($u+d-1<t_i$) they will test negative and be at risk of community transmission from the greater of $t_i$ and $d+u$ until $t_r$. If they are tested while infectious, they will only be at risk of community transmission if they test false-negative (probability $1-Sn_A$ where $Sn_A$ is test sensitivity during the asymptomatic-infectious stage) or if they test positive but refuse to quarantine ($Sn_A(1-P_{it})$ where $P_{it}$ is probability of isolation given a positive test and no symptoms). Therefore, the expected number of days at risk of community transmission for asymptomatic individuals with testing is:
+> In policies with testing, we assume those who do not comply with quarantine also do not receive testing. Those who are compliant are tested 1 day before quarantine end ($u+d-1$). If they are tested before becoming infectious ($u+d-1<t_i$) they will test negative and be at risk of community transmission from the greater of $t_i$ and $d+u$ until $t_r$. If they are tested while infectious, they will only be at risk of community transmission if they test false-negative (probability $1-Sn_A$ where $Sn_A$ is test sensitivity during the asymptomatic-infectious stage) or if they test positive but refuse to quarantine ($Sn_A(1-P_{it})$ where $P_{it}$ is probability of isolation given a positive test and no symptoms). Therefore, the expected number of days at risk of community transmission for asymptomatic individuals with testing is:
 
 $$
 [(1-P_{q})(t_{r} - \max(t_i, u))]^+ + P_{q}\big[  \1 _{\{u+d-1<t_i\}} (t_r - \max(t_i, d+u)) + \1 _{\{u+d - 1 \geq t_i\}} ((1-Sn_A)+Sn_A (1-P_{it})  ) (t_r - (u+d)) \big]^+
 $$
 
-> **Symptomatic infections**  For travelers with symptomatic infections we calculate the days at risk of community transmission separately for the presymptomatic and symptomatic disease stages. Days at risk during the presymptomatic stage are calculated the same as asymptomatic days except that the endpoint for presymptomatic days at risk is the time that symptoms begin ($t_s$) rather than the time of recovery ($t_r$), and we use test sensitivity for detecting disease in the presymptomatic-infectious stage ($Sn_P$). Therefore, the expected number of days at risk of community transmission while in presymptomatic phase without testing is:
+> **Symptomatic infections**  For travelers with symptomatic infections we calculate the days at risk of community transmission separately for the pre-symptomatic and symptomatic disease stages. Days at risk during the pre-symptomatic stage are calculated the same as asymptomatic days except that the endpoint for pre-symptomatic days at risk is the time that symptoms begin ($t_s$) rather than the time of recovery ($t_r$), and we use test sensitivity for detecting disease in the pre-symptomatic-infectious stage ($Sn_P$). Therefore, the expected number of days at risk of community transmission while in pre-symptomatic phase without testing is:
 
 $$
 [(1-P_{q}) (t_s - \max(t_i, u))]^+ + [P_{q} (t_s - \max(t_i,u+d))]^+
@@ -570,7 +537,7 @@ $$
 (1-P_{is})\Big( [(1-P_{q}) (t_r - \max(t_s, u))]^+ + [P_{q} (t_r - \max(t_s,u+d))]^+ \Big)
 $$
 
-> In policies with testing, we assume that the days at risk for those who do not comply with quarantine (probability $(1-P_q)$) is unchanged because they also do not get tested. For those who comply, if they are tested before infectious ($u+d-1<t_i$) then they will test negative. With probability $1-P_{is}$ they will not isolate and incur days at risk until $t_r$. If tested duirng presymptomatic-infectious stage ($t_i\leq u+d-1<t_s$), they will incur days at risk while symptomatic only if they test false negative (probability $(1-Sn_P$) and they do not isolate (probability $(1-P_{is}$)). We assume all travelers with both symptoms and a positive test will isolate. For those tested while symptomatic, they will incur days at risk only if the test is false negative ($1-Sn_S$ where $Sn_S$ is test sensitivity for those in symptomatic-infectious state). Therefore, the expected number of days at risk of community transmission while in the symptomatic-infectious phase with testing is:
+> In policies with testing, we assume that the days at risk for those who do not comply with quarantine (probability $(1-P_q)$) is unchanged because they also do not get tested. For those who comply, if they are tested before infectious ($u+d-1<t_i$) then they will test negative. With probability $1-P_{is}$ they will not isolate and incur days at risk until $t_r$. If tested duirng pre-symptomatic infectious stage ($t_i\leq u+d-1<t_s$), they will incur days at risk while symptomatic only if they test false negative (probability $(1-Sn_P$) and they do not isolate (probability $(1-P_{is}$)). We assume all travelers with both symptoms and a positive test will isolate. For those tested while symptomatic, they will incur days at risk only if the test is false negative ($1-Sn_S$ where $Sn_S$ is test sensitivity for those in symptomatic-infectious state). Therefore, the expected number of days at risk of community transmission while in the symptomatic-infectious phase with testing is:
 
 $$
 (1-P_{is}) [(1-P_{q}) (t_r - \max(t_s, u))]^+ + 
@@ -687,7 +654,7 @@ p_dist_presympt <-
     par2 = dt_d_presympt[1:100, ]$par2
   )+
   scale_x_continuous(limits = c(0.8, 3))+
-  xlab("Days presymptomatic\n(truncated; subtracted from incubation)")+
+  xlab("Days pre-symptomatic\n(truncated; subtracted from incubation)")+
   ylab("Density of 100 random distributions")
 
 p_dist_sympt <- 
@@ -726,3 +693,56 @@ ggsave("figs/fig_distribution_sampling.png",
 
 ![](figs/fig_distribution_sampling.png)
 
+
+#####
+
+```{r fig_S2, include = FALSE}
+prev.labs <- c("Pr = 1 in 100", "Pr = 1 in 1,000", "Pr = 1 in 10,000")
+names(prev.labs) <- c(1/100, 1/1000, 1/10000)
+dt_scenarios[ , prev := factor(prev)]
+
+# plt_scenario <- function(scenario_name, dt_scenarios){
+#   return(
+#     ggplot(data = dt_scenarios[scenario == scenario_name])+
+#       geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, color = factor(dur_q), group = factor(dur_q)),
+#                       position = position_dodge(width = 0.2))+
+#       facet_wrap(cols=vars(prev), labeller = labeller(prev = prev.labs))+
+#       xlab("")+
+#       ylab("Person-days at risk per 10,000 travelers")+
+#       scale_color_discrete(name="Quarantine length (days)")+
+#       scale_x_discrete(labels = c("No test", "Test"))+
+#       geom_line(aes(x = testing, y = q0.5, group = factor(dur_q), color = factor(dur_q)), linetype="dashed")+
+#       theme(legend.position = "bottom")+
+#       #scale_y_log10(limits = c(min(dt_scenarios$q0.01), max(dt_scenarios$q0.99)))+
+#       ggtitle(scenario_name)
+#   )
+# }
+
+
+plt_persondays <-  ggplot(data = dt_scenarios[scenario == "Base scenario" & prev != 1])+
+      geom_pointrange(aes(x = testing, y = q0.5*1e4, ymin = q0.01*1e4, ymax = q0.99*1e4, color = factor(dur_q), group = factor(dur_q)),
+                      position = position_dodge(width = 0.2))+
+      facet_wrap(facets=vars(prev), labeller = labeller(prev = prev.labs), scales = "free_y")+
+      xlab("")+
+      ylab("Person-days at risk\nper 10,000 travelers")+
+      scale_color_discrete(name="Quarantine length (days)")+
+      scale_x_discrete(labels = c("No test", "Test"))+
+      geom_line(aes(x = testing, y = q0.5*1e4, group = factor(dur_q), color = factor(dur_q)), linetype="dashed", position = position_dodge(width = 0.2))+
+      theme(legend.position = "bottom")
+
+
+ggsave(
+  "figs/figS2.png",
+  width = 6.5,
+  height = 2.5,
+  units = "in"
+)
+
+```
+
+
+::: {custom-style="Compact"}
+| **Fig. S2** Person-days at risk of community transmission per 10,000 arriving travelers for each policy by SARS-CoV-2 prevalence among travelers (base scenario). Person-days at risk for all travelers is calculated from the days at risk for an infectious traveler by multiplying the prevalence of active infection among arriving travelers. Points indicates the median and bars indicate 98% credible interval for each estimate. Abbreviations: Pr, prevalence of pre-infectious or infectiousness with SARS-CoV-2.
+:::
+
+![](figs/figS2.png)

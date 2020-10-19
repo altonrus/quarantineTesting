@@ -1,6 +1,9 @@
 library(truncdist)
 library(data.table)
 
+
+
+
 sim_quarantine_lnorm <- function(dt_incubation_dists_lnorm,
                                  params,
                                  n_sympt = 6000, n_asympt = 1000,
