@@ -1,0 +1,10 @@
+name: quarantineapp
+title:
+username:
+account: altonrus
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3059228
+bundleId: 3763548
+url: https://altonrus.shinyapps.io/quarantineapp/
+when: 1603218715.03722

@@ -213,7 +213,7 @@ ui <- tagList(
                           and director of the surveillance lab at MCHI.",
                           br(),
                           h2("Links"),
-                          tags$a(href="http://mchi.mcgill.ca/", "McGill Clinical Health and Informatics Group"),
+                          tags$a(href="http://mchi.mcgill.ca/", "McGill Clinical Health and Informatics (MCHI)"),
                           br(),
                           tags$a(href="http://altonrussell.com/", "Alton's website"),
                           ) #########
