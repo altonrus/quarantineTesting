@@ -6,7 +6,7 @@ run_sim <- function(params, dt_incubation_dists_lnorm){
   #  simulations for days at risk per infected traveller
   n_sympt = 6000
   n_asympt = 1000
-  print("run_sim")
+  #print("run_sim")
   
   set.seed(params$seed)
   
@@ -339,7 +339,7 @@ update_analysis <- function(dt_raw, analysis_params){
   #   metric %in% "days", "person-days", or "sec-cases"
   #   include_test $in$ TRUE/FALSE
   #   
-  print("update_analysis")
+  #print("update_analysis")
 }
 
 
