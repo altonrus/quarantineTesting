@@ -30,7 +30,7 @@ source("quarantine-functions.R")
 #Incubation time from Lauer 2020 bootstrapped posteriors
 incubation_dist_fit_lnorm <- readRDS("ncov_inc_fit_boot.rds")
 dt_incubation_dists_lnorm <- data.table(incubation_dist_fit_lnorm@samples)
-
+print(dt_incubation_dists_lnorm)
 
 # Define UI
 ui <- tagList(
@@ -351,7 +351,7 @@ server <- function(input, output, session) {
         )
         print(sim_params)
         #Run simulation
-        Values$dt_raw <<- run_sim(sim_params)
+        Values$dt_raw <<- run_sim(sim_params, dt_incubation_dists_lnorm)
         })
     
     

@@ -1,6 +1,6 @@
 
 
-run_sim <- function(params){
+run_sim <- function(params, dt_incubation_dists_lnorm){
   #Takes parameter from shiny app inputs and returns dt_raw,
   #  which is the .01, .50, and .99th percentiles of the
   #  simulations for days at risk per infected traveller

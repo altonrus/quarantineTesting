@@ -5,6 +5,6 @@ account: altonrus
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 3059228
-bundleId: 3763548
+bundleId: 3771993
 url: https://altonrus.shinyapps.io/quarantineapp/
-when: 1603218715.03722
+when: 1603396819.40344
