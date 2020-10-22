@@ -7,10 +7,11 @@
 #    http://shiny.rstudio.com/
 #
 
-library(shiny)
-library(shinyjs)
-library(ggplot2)
-library(data.table)
+library(pacman)
+p_load(shiny)
+p_load(shinyjs)
+p_load(ggplot2)
+p_load(data.table)
 source("quarantine-functions.R")
 
 
