@@ -87,6 +87,12 @@ ui <- tagList(
                                      #Plot
                                      h2("Plot"),
                                      plotOutput("sim_plot", height = "400px", width = "550px"),
+                                     br(),
+                                     actionButton("reset",
+                                                  "Reset to base scenario",
+                                                  width = '30%',
+                                                  style="color: #fff; background-color: #337ab7; border-color: #2e6da4"),
+                                     br(),
                                      #table
                                      h2("Table"),
                                      tableOutput("sim_data")
@@ -240,8 +246,6 @@ Values <- reactiveValues(dt_raw = fread("dt_raw.csv"))
 server <- function(input, output, session) {
 
     
-
-    
     #dt_analysis is conductor between input parameters and output (plot and displayed table)
     dt_analysis <- reactive({
         make_dt_analysis(
@@ -254,12 +258,6 @@ server <- function(input, output, session) {
     
     #PLOT
     output$sim_plot <- renderPlot(
-        # dt_analysis <- make_dt_analysis(
-        #     Values$dt_raw,
-        #     input$metric,
-        #     input$include_test,
-        #     input$prev,
-        #     input$sec_cases_per_day),
         if (input$include_test ){
             ggplot(dt_analysis())+
                 geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, 
@@ -361,6 +359,28 @@ server <- function(input, output, session) {
         #Run simulation
         Values$dt_raw <<- run_sim(sim_params, dt_incubation_dists_lnorm)
         })
+    
+    observeEvent(input$reset, {
+        reset("prev")
+        reset("sec_cases_per_day")
+        reset("Options")
+        reset("dur_quarantine")
+        reset("RNseed")
+        reset("sn_presympt")
+        reset("sn_sympt")
+        reset("sn_asympt")
+        reset("prob_asympt")
+        reset("prob_quarantine_compliance")
+        reset("prob_isolate_sympt")
+        reset("prob_isolate_test")
+        reset("prob_isolate_both")
+        reset("rand_u")
+        
+        Values$dt_raw <- fread("dt_raw.csv")
+        
+        dt_analysis()
+        
+    })
     
     
 }
