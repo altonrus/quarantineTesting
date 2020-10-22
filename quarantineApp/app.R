@@ -216,6 +216,8 @@ ui <- tagList(
                           tags$a(href="http://mchi.mcgill.ca/", "McGill Clinical Health and Informatics (MCHI)"),
                           br(),
                           tags$a(href="http://altonrussell.com/", "Alton's website"),
+                          br(),
+                          tags$a(href="https://github.com/altonrus/quarantineTesting/", "Github with code for this project")
                           ) #########
 
                ) ##Close navbar
