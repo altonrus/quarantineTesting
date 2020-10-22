@@ -104,7 +104,7 @@ ui <- tagList(
                                                     "100 (faster update)" = 100)),
                                      selectizeInput(
                                          "dur_quarantine", 
-                                         "Quarantine durations to compare", 
+                                         "Quarantine durations to compare (days)", 
                                          choices = 0:20,
                                          multiple = TRUE,
                                          options = list(create = TRUE),
@@ -262,6 +262,7 @@ server <- function(input, output, session) {
                 geom_line(aes(x = testing, y = q0.5, group = factor(quarantine_length), 
                               color = factor(quarantine_length)), linetype="dashed",
                           position = position_dodge(width = 0.2))+
+                theme_minimal()+
                 theme(legend.position = "bottom",
                       text = element_text(size = 18))+
                 scale_y_continuous(limits=c(0,NA))
@@ -276,6 +277,7 @@ server <- function(input, output, session) {
                              "person-days" = "Person-days at risk\nper 10,000 travelers",
                              "sec-cases" = "Secondary cases\nper 10,000 travelers"))+
                 scale_color_discrete(name="Quarantine length (days)")+
+                theme_minimal()+
                 theme(legend.position = "none",
                       text = element_text(size = 18))+
                 scale_y_continuous(limits=c(0,NA))
