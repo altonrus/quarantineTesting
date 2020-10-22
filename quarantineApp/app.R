@@ -7,6 +7,11 @@
 #    http://shiny.rstudio.com/
 #
 
+# library(shiny)
+# library(shinyjs)
+# library(ggplot2)
+# library(data.table)
+# library(trunc)
 library(pacman)
 p_load(shiny)
 p_load(shinyjs)
@@ -208,11 +213,15 @@ ui <- tagList(
                           requires an estimate of the rate of econdary infections per person-day that an traveler is infectious and 
                           at-risk in the community.",
                           br(),
+                          
                           h1("About the authors"),
                           "This tool was created by Alton Russell, PhD candidate at Stanford University and visitor
                           at  McGill Clinical & Health Informatics (MCHI), in collaboration
                           with David Buckeridge, Professor of Epidemiology and Biostatistics at McGill University
                           and director of the surveillance lab at MCHI.",
+                          br(),
+                          br(),
+                          "A huge thanks to Aman Verma and Maxime Lavigne for technical assistance with hosting the app.",
                           br(),
                           h2("Links"),
                           tags$a(href="http://mchi.mcgill.ca/", "McGill Clinical Health and Informatics (MCHI)"),
