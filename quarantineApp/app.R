@@ -240,12 +240,12 @@ ui <- tagList(
                ) ##Close navbar
 ) ##Close taglist
 
-Values <- reactiveValues(dt_raw = fread("dt_raw.csv"))
+
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
 
-    
+    Values <- reactiveValues(dt_raw = fread("dt_raw.csv"))
     #dt_analysis is conductor between input parameters and output (plot and displayed table)
     dt_analysis <- reactive({
         make_dt_analysis(
