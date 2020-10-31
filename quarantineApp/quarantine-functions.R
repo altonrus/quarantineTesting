@@ -1,6 +1,6 @@
 
 
-run_sim <- function(params, dt_incubation_dists_lnorm){
+run_sim <- function(params, dt_incubation_dists_lnorm, progress = FALSE){
   #Takes parameter from shiny app inputs and returns dt_raw,
   #  which is the .01, .50, and .99th percentiles of the
   #  simulations for days at risk per infected traveller
@@ -52,90 +52,39 @@ run_sim <- function(params, dt_incubation_dists_lnorm){
     dt_incubation_dists_lnorm <- dt_incubation_dists_lnorm[sample(.N, params$n_iters)]
   }
   
-  withProgress(message = 'Running simulation', value = 0, {
+  if ( progress == TRUE) {
+    withProgress(message = 'Running simulation', value = 0, {
+      # Iterate over sets of duration parameters
+      for (row in 1:params$n_iters){
+        dt_raw_metrics <- rbind(dt_raw_metrics, 
+                                run_sim_inner_loop(n_sympt, 
+                                                   n_asympt,
+                                                   dt_d_presympt,
+                                                   dt_d_asympt,
+                                                   dt_d_sympt,
+                                                   dt_incubation_dists_lnorm,
+                                                   params,
+                                                   row)
+        )
+        incProgress(amount = 1/params$n_iters)
+      }
+    })
+  } else {
     # Iterate over sets of duration parameters
     for (row in 1:params$n_iters){
-      #print(row)
-      #[PRE]SYMPOMATIC INFECTION
-      #Sample all durations
-      dt_sympt <-
-        data.table(
-          dur_presympt = rtrunc(n_sympt, "gamma", 0.8, 3, 
-                                shape=dt_d_presympt[row, par1], scale=dt_d_presympt[row, par2]),
-          dur_sympt = rgamma(n_sympt, 
-                             shape=dt_d_sympt[row, par1], scale = dt_d_sympt[row, par2]),
-          dur_incubation = rlnorm(n_sympt, 
-                                  meanlog=dt_incubation_dists_lnorm[row, par1], 
-                                  sdlog = dt_incubation_dists_lnorm[row, par2])
-        )
-      
-      #Calc times. t=0 is time of infection
-      dt_sympt[ , t_infectious_start := pmax(0, dur_incubation - dur_presympt)]
-      dt_sympt[ , t_sympt_start := dur_incubation]
-      dt_sympt[ , t_recovery := dur_incubation + dur_sympt]
-      if(params$rand_u == TRUE){
-        dt_sympt[ , dur_infected_prequarantine := runif(n_sympt)*t_recovery]
-      } else {
-        dt_sympt[ , dur_infected_prequarantine := 0]
-      }
-      
-      
-      
-      #ASYMPTOMATIC INFECTION
-      #Sample all durations
-      dt_asympt <-
-        data.table(
-          dur_presympt = rtrunc(n_asympt, "gamma", 0.8, 3, 
-                                shape=dt_d_presympt[row, par1], scale=dt_d_presympt[row, par2]),
-          dur_infectious = rgamma(n_asympt, 
-                                  shape=dt_d_asympt[row, par1], scale = dt_d_asympt[row, par2]),
-          dur_incubation = rlnorm(n_asympt, 
-                                  meanlog=dt_incubation_dists_lnorm[row, par1], 
-                                  sdlog = dt_incubation_dists_lnorm[row, par2])
-        )
-      
-      #Calc times
-      dt_asympt[ , t_infectious_start := pmax(0, dur_incubation - dur_presympt)]
-      dt_asympt[ , t_recovery := t_infectious_start + dur_infectious]
-      if(params$rand_u == TRUE){
-        dt_asympt[ , dur_infected_prequarantine := runif(n_asympt)*t_recovery]
-      } else {
-        dt_asympt[ , dur_infected_prequarantine := 0]
-      }
-      #BOTH
-      #Calculate outcomes
-      dt_metrics_this_iter <-
-        rbind(
-          data.table(
-            iter = row,
-            quarantine_length = params$dur_quarantine,
-            testing = 0,
-            d_presympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_presympt_days_in_community, 
-                                       dt_sympt = dt_sympt, params=params, test = 0)),
-            d_sympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_sympt_days_in_community, 
-                                    dt_sympt = dt_sympt, params=params, test = 0)),
-            d_asympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_asympt_days_in_community, 
-                                     dt_asympt = dt_asympt, params=params, test = 0))),
-          data.table(
-            iter = row,
-            quarantine_length = params$dur_quarantine,
-            testing = 1,
-            d_presympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_presympt_days_in_community, 
-                                       dt_sympt = dt_sympt, params=params, test = 1)),
-            d_sympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_sympt_days_in_community, 
-                                    dt_sympt = dt_sympt, params=params, test = 1)),
-            d_asympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_asympt_days_in_community, 
-                                     dt_asympt = dt_asympt, params=params, test = 1)))
-        )
-      
-      dt_raw_metrics <- rbind(dt_raw_metrics,
-                              dt_metrics_this_iter)
-      
-      #print(params$n_iters)
-      #print(typeof(params$n_iters))
-      incProgress(amount = 1/params$n_iters)
+      dt_raw_metrics <- rbind(dt_raw_metrics, 
+                              run_sim_inner_loop(n_sympt, 
+                                           n_asympt,
+                                           dt_d_presympt,
+                                           dt_d_asympt,
+                                           dt_d_sympt,
+                                           dt_incubation_dists_lnorm,
+                                           params,
+                                           row)
+      )
     }
-  })
+  }
+  
 
 
   
@@ -157,7 +106,91 @@ run_sim <- function(params, dt_incubation_dists_lnorm){
 }
 
 
-
+run_sim_inner_loop <- function(n_sympt, 
+                               n_asympt,
+                               dt_d_presympt,
+                               dt_d_asympt,
+                               dt_d_sympt,
+                               dt_incubation_dists_lnorm,
+                               params,
+                               row){
+  #print(row)
+  #[PRE]SYMPOMATIC INFECTION
+  #Sample all durations
+  dt_sympt <-
+    data.table(
+      dur_presympt = rtrunc(n_sympt, "gamma", 0.8, 3, 
+                            shape=dt_d_presympt[row, par1], scale=dt_d_presympt[row, par2]),
+      dur_sympt = rgamma(n_sympt, 
+                         shape=dt_d_sympt[row, par1], scale = dt_d_sympt[row, par2]),
+      dur_incubation = rlnorm(n_sympt, 
+                              meanlog=dt_incubation_dists_lnorm[row, par1], 
+                              sdlog = dt_incubation_dists_lnorm[row, par2])
+    )
+  
+  #Calc times. t=0 is time of infection
+  dt_sympt[ , t_infectious_start := pmax(0, dur_incubation - dur_presympt)]
+  dt_sympt[ , t_sympt_start := dur_incubation]
+  dt_sympt[ , t_recovery := dur_incubation + dur_sympt]
+  if(params$infection_timing == "rand_incl_sympt"){
+    dt_sympt[ , dur_infected_prequarantine := runif(n_sympt)*t_recovery]
+  } else if(params$infection_timing == "rand_presympt"){
+    dt_sympt[ , dur_infected_prequarantine := runif(n_sympt)*t_sympt_start]
+  } else{
+    dt_sympt[ , dur_infected_prequarantine := 0]
+  }
+  
+  
+  
+  #ASYMPTOMATIC INFECTION
+  #Sample all durations
+  dt_asympt <-
+    data.table(
+      dur_presympt = rtrunc(n_asympt, "gamma", 0.8, 3, 
+                            shape=dt_d_presympt[row, par1], scale=dt_d_presympt[row, par2]),
+      dur_infectious = rgamma(n_asympt, 
+                              shape=dt_d_asympt[row, par1], scale = dt_d_asympt[row, par2]),
+      dur_incubation = rlnorm(n_asympt, 
+                              meanlog=dt_incubation_dists_lnorm[row, par1], 
+                              sdlog = dt_incubation_dists_lnorm[row, par2])
+    )
+  
+  #Calc times
+  dt_asympt[ , t_infectious_start := pmax(0, dur_incubation - dur_presympt)]
+  dt_asympt[ , t_recovery := t_infectious_start + dur_infectious]
+  if(params$infection_timing == "rand_presympt" | params$infection_timing == "rand_incl_sympt"){
+    dt_asympt[ , dur_infected_prequarantine := runif(n_asympt)*t_recovery]
+  } else {
+    dt_asympt[ , dur_infected_prequarantine := 0]
+  }
+  #BOTH
+  #Calculate outcomes
+  dt_metrics_this_iter <-
+    rbind(
+      data.table(
+        iter = row,
+        quarantine_length = params$dur_quarantine,
+        testing = 0,
+        d_presympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_presympt_days_in_community, 
+                                   dt_sympt = dt_sympt, params=params, test = 0)),
+        d_sympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_sympt_days_in_community, 
+                                dt_sympt = dt_sympt, params=params, test = 0)),
+        d_asympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_asympt_days_in_community, 
+                                 dt_asympt = dt_asympt, params=params, test = 0))),
+      data.table(
+        iter = row,
+        quarantine_length = params$dur_quarantine,
+        testing = 1,
+        d_presympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_presympt_days_in_community, 
+                                   dt_sympt = dt_sympt, params=params, test = 1)),
+        d_sympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_sympt_days_in_community, 
+                                dt_sympt = dt_sympt, params=params, test = 1)),
+        d_asympt = unlist(lapply(X = params$dur_quarantine, FUN = calc_asympt_days_in_community, 
+                                 dt_asympt = dt_asympt, params=params, test = 1)))
+    )
+  
+  return(dt_metrics_this_iter)
+}
 
 
 
@@ -174,23 +207,53 @@ calc_presympt_days_in_community <- function(quarantine_length, dt_sympt, params,
       )/nrow(dt_sympt)]
     )
   } else {
-    return(
-      dt_sympt[ , sum(
-        #Noncompliant with quarantine, not tested
-        pmax(0,(1-params$prob_quarantine_compliance)*
-               (t_sympt_start - pmax(t_infectious_start, dur_infected_prequarantine)))+
-          params$prob_quarantine_compliance*
-          pmax(0,
-               ifelse(quarantine_length+dur_infected_prequarantine-1 < t_infectious_start,
-                      #tested before infectious
-                      t_sympt_start - pmax(dur_infected_prequarantine+quarantine_length, t_infectious_start),
-                      #tested while presymtomatic or after
-                      ((1-params$sn_presympt)+params$sn_presympt*(1-params$prob_isolate_test))* #prob test neg or test pos & refuse to isolate
-                        (t_sympt_start - (quarantine_length+dur_infected_prequarantine)))
-          )
-      )/nrow(dt_sympt)]
-    )
-    
+    if (params$test_on_arrival == FALSE){
+      return(
+        dt_sympt[ , sum(
+          #Noncompliant with quarantine, not tested
+          pmax(0,(1-params$prob_quarantine_compliance)*
+                 (t_sympt_start - pmax(t_infectious_start, dur_infected_prequarantine)))+
+            params$prob_quarantine_compliance*
+            pmax(0,
+                 ifelse(quarantine_length+dur_infected_prequarantine-1 < t_infectious_start,
+                        #tested before infectious
+                        t_sympt_start - pmax(dur_infected_prequarantine+quarantine_length, t_infectious_start),
+                        #tested while presymtomatic or after
+                        ((1-params$sn_presympt)+params$sn_presympt*(1-params$prob_isolate_test))* #prob test neg or test pos & refuse to isolate
+                          (t_sympt_start - (quarantine_length+dur_infected_prequarantine)))
+            )
+        )/nrow(dt_sympt)]
+      )
+    } else {
+      
+      
+      return(
+        dt_sympt[ , sum(
+          #Noncompliant with quarantine, not tested
+          pmax(0,(1-params$prob_quarantine_compliance)*
+                 (t_sympt_start - pmax(t_infectious_start, dur_infected_prequarantine)))+
+            params$prob_quarantine_compliance*
+            pmax(0,
+                 ifelse(quarantine_length+dur_infected_prequarantine-1 < t_infectious_start,
+                        #Both tests were before infectious and therefore were negative
+                        t_sympt_start - pmax(dur_infected_prequarantine+quarantine_length, t_infectious_start),
+                        ifelse(dur_infected_prequarantine < t_infectious_start, 
+                               #First test was before infectious and therefore negative
+                               ((1-params$sn_presympt)+params$sn_presympt*(1-params$prob_isolate_test))* #prob test neg or test pos & refuse to isolate
+                                 (t_sympt_start - (quarantine_length+dur_infected_prequarantine)),
+                               
+                               #First and second test were both after infectiousness began
+                               (#prob (both tests neg) OR (at least one test pos but refused to isolate)
+                                 (1-params$sn_presympt)^2+(1 - (1 - params$sn_presympt)^2)*(1-params$prob_isolate_test))* 
+                                 (t_sympt_start - (quarantine_length+dur_infected_prequarantine))
+                                )
+                        )
+            )
+        )/nrow(dt_sympt)]
+      )
+      
+    }
+
   }
 }
 
@@ -214,40 +277,113 @@ calc_sympt_days_in_community <- function(quarantine_length, dt_sympt, params, te
       
     )
   } else {
-    return(
-      dt_sympt[ , sum(
-        #noncompliant
-        (1-params$prob_quarantine_compliance)*(1-params$prob_isolate_sympt)*
-          pmax(0, t_recovery - pmax(t_sympt_start, dur_infected_prequarantine))+
-          params$prob_quarantine_compliance*
-          pmax(0,
-               ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start),
-                      #tested before infectious therefore neg test
-                      (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine))*
-                        (1-params$prob_isolate_sympt),
-                      ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_sympt_start),
-                             #tested during presymptomatic
-                             #  tested negative
-                             (1-params$sn_presympt)*(1-params$prob_isolate_sympt)*
-                               (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)) +
-                               #  tested positive
-                               params$sn_presympt*(1-params$prob_isolate_both)*
-                               (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)),
-                             #tested while symptomatic or after
-                             #  tested negative
-                             (1-params$sn_sympt)*(1-params$prob_isolate_sympt)*
-                               (t_recovery - (quarantine_length + dur_infected_prequarantine))+
-                               #  tested positive
-                               params$sn_sympt*(1-params$prob_isolate_both)*
-                               (t_recovery - (quarantine_length + dur_infected_prequarantine))
-                      )
-               )
-          )
-        
-      )/nrow(dt_sympt)]
-    )
+    if (params$test_on_arrival == FALSE){
+      return(
+        dt_sympt[ , sum(
+          #noncompliant
+          (1-params$prob_quarantine_compliance)*(1-params$prob_isolate_sympt)*
+            pmax(0, t_recovery - pmax(t_sympt_start, dur_infected_prequarantine))+
+            params$prob_quarantine_compliance*
+            pmax(0,
+                 ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start),
+                        #tested before infectious therefore neg test
+                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine))*
+                          (1-params$prob_isolate_sympt),
+                        ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_sympt_start),
+                               #tested during presymptomatic
+                               #  tested negative
+                               (1-params$sn_presympt)*(1-params$prob_isolate_sympt)*
+                                 (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)) +
+                                 #  tested positive
+                                 params$sn_presympt*(1-params$prob_isolate_both)*
+                                 (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)),
+                               #tested while symptomatic or after
+                               #  tested negative
+                               (1-params$sn_sympt)*(1-params$prob_isolate_sympt)*
+                                 (t_recovery - (quarantine_length + dur_infected_prequarantine))+
+                                 #  tested positive
+                                 params$sn_sympt*(1-params$prob_isolate_both)*
+                                 (t_recovery - (quarantine_length + dur_infected_prequarantine))
+                        )
+                 )
+            )
+          
+        )/nrow(dt_sympt)]
+      )
+    } else {
+      
+      return(
+        dt_sympt[ , sum(
+          #noncompliant
+          (1-params$prob_quarantine_compliance)*(1-params$prob_isolate_sympt)*
+            pmax(0, t_recovery - pmax(t_sympt_start, dur_infected_prequarantine))+
+            params$prob_quarantine_compliance*
+            pmax(0,
+                 ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start),
+                        #both tests before infectious therefore neg test
+                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine))*
+                          (1-params$prob_isolate_sympt),
+                        #Second test (and perhaps first) are after infectiousness begins
+                        ifelse(dur_infected_prequarantine < t_infectious_start,
+                               #First test is before infectiousness began
+                               ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_sympt_start),
+                                      #tested during presymptomatic
+                                      #  tested negative and does not isolate due to symptoms
+                                      (1-params$sn_presympt)*(1-params$prob_isolate_sympt)*
+                                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)) +
+                                        #  tested positive
+                                        params$sn_presympt*(1-params$prob_isolate_both)*
+                                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)),
+                                      #tested while symptomatic or after
+                                      #  tested negative
+                                      (1-params$sn_sympt)*(1-params$prob_isolate_sympt)*
+                                        (t_recovery - (quarantine_length + dur_infected_prequarantine))+
+                                        #  tested positive
+                                        params$sn_sympt*(1-params$prob_isolate_both)*
+                                        (t_recovery - (quarantine_length + dur_infected_prequarantine))
+                               ),
+                               #First test is after infectousness began
+                               ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_sympt_start),
+                                      #both tests are during presymptomatic phase
+                                      #  tested negative and does not isolate due to symptoms
+                                      (1-params$sn_presympt)^2*(1-params$prob_isolate_sympt)*
+                                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)) +
+                                        #  tested positive
+                                        (1 - (1-params$sn_presympt)^2)*(1-params$prob_isolate_both)*
+                                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)),
+                                      ifelse(1,
+                                              #First test during presymptomatic phase; second test is after
+                                             #  tested negative
+                                             (1-params$sn_sympt)*(1-params$sn_asympt)*(1-params$prob_isolate_sympt)*
+                                               (t_recovery - (quarantine_length + dur_infected_prequarantine))+
+                                               #  tested positive
+                                               (1 - (1-params$sn_sympt)*(1-params$sn_asympt) ) *(1-params$prob_isolate_both)*
+                                               (t_recovery - (quarantine_length + dur_infected_prequarantine)),
+                                              #Both tests are after presymptomatic phase
+                                              #  tested negative
+                                              (1-params$sn_sympt)^2*(1-params$prob_isolate_sympt)*
+                                                (t_recovery - (quarantine_length + dur_infected_prequarantine))+
+                                                #  tested positive
+                                                (1 - (1-params$sn_sympt)^2) *(1-params$prob_isolate_both)*
+                                                (t_recovery - (quarantine_length + dur_infected_prequarantine))
+                                              )      
+                               )
+                        )
+                 )
+                        
+                        
+            )
+          
+        )/nrow(dt_sympt)]
+      )
+    }
+    
   }
 }
+
+
+
+
 
 
 calc_asympt_days_in_community <- function(quarantine_length, dt_asympt, params, test = 0){
@@ -261,25 +397,51 @@ calc_asympt_days_in_community <- function(quarantine_length, dt_asympt, params, 
       )/nrow(dt_asympt)]
     )
   } else {
-    return(
-      dt_asympt[ , sum(
-        #No compliance & no test
-        pmax(0, (1-params$prob_quarantine_compliance)*
-               (t_recovery - pmax(dur_infected_prequarantine, t_infectious_start)))+
-          params$prob_quarantine_compliance*pmax(0, 
-                                                 ifelse(quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start,
-                                                        #tested before infectious/detectable
-                                                        t_recovery - pmax(t_infectious_start, dur_infected_prequarantine+quarantine_length),
-                                                        #tested while or after infectious
-                                                        ((1-params$sn_asympt)+params$sn_asympt*(1-params$prob_isolate_test))* #Prob test neg or test pos & refuse to quarantine
-                                                          (t_recovery - (quarantine_length+dur_infected_prequarantine))
-                                                 )
-          )
-      )/nrow(dt_asympt)]
-    )
+    if (params$test_on_arrival == FALSE){
+      return(
+        dt_asympt[ , sum(
+          #No compliance & no test
+          pmax(0, (1-params$prob_quarantine_compliance)*
+                 (t_recovery - pmax(dur_infected_prequarantine, t_infectious_start)))+
+            params$prob_quarantine_compliance*pmax(0, 
+                                                   ifelse(quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start,
+                                                          #tested before infectious/detectable
+                                                          t_recovery - pmax(t_infectious_start, dur_infected_prequarantine+quarantine_length),
+                                                          #tested while or after infectious
+                                                          ((1-params$sn_asympt)+params$sn_asympt*(1-params$prob_isolate_test))* #Prob test neg or test pos & refuse to quarantine
+                                                            (t_recovery - (quarantine_length+dur_infected_prequarantine))
+                                                   )
+            )
+        )/nrow(dt_asympt)]
+      )
+    } else {
+      return(
+        dt_asympt[ , sum(
+          #No compliance & no test
+          pmax(0, (1-params$prob_quarantine_compliance)*
+                 (t_recovery - pmax(dur_infected_prequarantine, t_infectious_start)))+
+            params$prob_quarantine_compliance*pmax(0, 
+                                                   ifelse(quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start,
+                                                          #both tests are before infectious/detectable
+                                                          t_recovery - pmax(t_infectious_start, dur_infected_prequarantine+quarantine_length),
+                                                          ifelse(dur_infected_prequarantine < t_infectious_start,
+                                                                 #First test was before infectious and therefore was negative
+                                                                 ((1-params$sn_asympt)+params$sn_asympt*(1-params$prob_isolate_test))* #Prob test neg or test pos & refuse to quarantine
+                                                                   (t_recovery - (quarantine_length+dur_infected_prequarantine)),
+                                                                 #Both tests were after infectiousness began
+                                                                 ((1-params$sn_asympt)+params$sn_asympt*(1-params$prob_isolate_test))* #Prob test neg or test pos & refuse to quarantine
+                                                                   (t_recovery - (quarantine_length+dur_infected_prequarantine)))
+                                                   )
+            )
+        )/nrow(dt_asympt)]
+      )
+    }
     
   }
-}  
+}
+  
+  
+
 
 
 

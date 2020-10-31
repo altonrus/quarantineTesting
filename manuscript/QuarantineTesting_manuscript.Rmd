@@ -51,304 +51,9 @@ altonr@stanford.edu
 
 #####
 
-```{r setup, include=FALSE}
-library(ggplot2)
-library(data.table)
-library(coarseDataTools)
-library(googlesheets4)
-library(gridExtra)
-library(flextable)
-library(officedown)
-library(officer)
-theme_set(theme_bw())
-
-source("../quarantine.functions.R")
-
-params <- list(
-  prob_asympt = 0.24,
-  prob_isolate_test = 0.9,
-  prob_isolate_sympt = 0.8,
-  prob_isolate_both = 1.0,
-  sn_presympt = 0.7,
-  sn_sympt = 0.7,
-  sn_asympt = 0.6,
-  prob_quarantine_compliance = 0.8,
-  dur_presympt_mean_lb = 1.8,
-  dur_presympt_mean_ub = 2.8,
-  dur_presympt_var_lb = 4.0,
-  dur_presympt_var_ub = 6.0,
-  dur_sympt_mean_lb = 2.6,
-  dur_sympt_mean_ub = 3.9,
-  dur_sympt_var_lb = 3.0,
-  dur_sympt_var_ub = 4.5,
-  dur_asympt_mean_lb = 4.0,
-  dur_asympt_mean_ub = 6.0,
-  dur_asympt_var_lb = 4.0,
-  dur_asympt_var_ub = 6.0
-)
-
-
-#Policy parameters
-pols_dur_quarantine <- c(0, 2, 5, 7, 14)
-pols_test <- c(0, 1)
-prev_levels <- c(1, 1/100, 1/1000, 1/10000)
-
-dt_scenarios <- fread("../scenarios.csv")
-dt_scenarios[ , scenario := factor(scenario,
-                                   levels = c(
-                                    "Base scenario",
-                                    "All asymptomatic",
-                                    "All symptomatic",
-                                    "17.9% asymptomatic",
-                                    "30.8% asymptomatic",
-                                    "Low compliance",
-                                    "Perfect compliance",
-                                    "Infected on arrival",
-                                    "Perfect test",
-                                    "Asympt. sensitivity 30%"
-                                   ))]
-
-
-```
-
-
-```{r run_sims, include=FALSE, eval=FALSE}
-
-#Incubation time from Lauer 2020 bootstrapped posteriors
-incubation_dist_fit_lnorm <- readRDS("../incubation_dists/ncov_inc_fit_boot.rds")
-dt_incubation_dists_lnorm <- data.table(incubation_dist_fit_lnorm@samples)
-# 
-# temp <- sim_quarantine_lnorm(
-#     dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-#     params = params)
-# 
-# temp2 <- sim_calc_metrics(
-#   dt_raw_metrics = temp,
-#   params = params,
-#   prev_levels = c(1),
-#   scenario = "Blank"
-# )
-# temp2[, c("scenario", "prev", "metric") := NULL]
-# 
-# saveRDS(temp2, file = "../sim_dat_raw.RDS")
-
-
-#Create scenarios
-add_scenario <- function(dt_scenarios_wide, dt_scenario_long){
-  return(
-    rbind(
-      dt_scenarios_wide,
-      dcast(dt_scenario_long,  prev+metric+dur_q+testing+scenario~quantile, value.var = "value")
-    )
-  )
-}
-
-#Base scenario
-Sys.time()
-dt_metrics_basecase <- sim_calc_metrics(
-  dt_raw_metrics = sim_quarantine_lnorm(
-    dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-    params = params),
-  params = params,
-  prev_levels = prev_levels,
-  scenario = "Base scenario"
-)
-Sys.time()
-
-dt_scenarios <- dcast(dt_metrics_basecase,  prev+metric+dur_q+testing+scenario ~ quantile, value.var = "value")
-
-
-
-#Perfect compliance
-params.perfect_compliance <- params
-params.perfect_compliance$prob_isolate_test = 1
-params.perfect_compliance$prob_isolate_sympt = 1
-params.perfect_compliance$prob_isolate_both = 1
-params.perfect_compliance$prob_quarantine_compliance = 1
-
-Sys.time()
-dt_metrics_perf_compliance <- sim_calc_metrics(
-  dt_raw_metrics = sim_quarantine_lnorm(
-    dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-    params = params.perfect_compliance),
-  params = params.perfect_compliance,
-  prev_levels = prev_levels,
-  scenario = "Perfect compliance"
-)
-Sys.time()
-
-dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_perf_compliance)
-
-#Low compliance
-params.low_compliance <- params
-params.low_compliance$prob_isolate_test = 0.5
-params.low_compliance$prob_isolate_sympt = 0.5
-params.low_compliance$prob_isolate_both = 0.7
-params.low_compliance$prob_quarantine_compliance = 0.4
-
-Sys.time()
-dt_metrics_low_compliance <- sim_calc_metrics(
-  dt_raw_metrics = sim_quarantine_lnorm(
-    dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-    params = params.low_compliance),
-  params = params.low_compliance,
-  prev_levels = prev_levels,
-  scenario = "Low compliance"
-)
-Sys.time()
-
-dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_low_compliance)
-
-
-#Low asymptomatic
-params_asympt_low <- params
-params_asympt_low$prob_asympt = .179
-
-Sys.time()
-dt_metrics_asympt_low <- sim_calc_metrics(
-  dt_raw_metrics = sim_quarantine_lnorm(
-    dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-    params = params_asympt_low),
-  params = params_asympt_low,
-  prev_levels = prev_levels,
-  scenario = "17.9% asymptomatic"
-)
-Sys.time()
-
-dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_asympt_low)
-
-#High asymptomatic
-params_asympt_high <- params
-params_asympt_high$prob_asympt = .308
-
-Sys.time()
-dt_metrics_asympt_high <- sim_calc_metrics(
-  dt_raw_metrics = sim_quarantine_lnorm(
-    dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-    params = params_asympt_high),
-  params = params_asympt_high,
-  prev_levels = prev_levels,
-  scenario = "30.8% asymptomatic"
-)
-Sys.time()
-
-dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_asympt_high)
-
-
-#all asymptomatic
-params_all_asympt <- params
-params_all_asympt$prob_asympt = 1
-
-Sys.time()
-dt_metrics_all_asympt <- sim_calc_metrics(
-  dt_raw_metrics = sim_quarantine_lnorm(
-    dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-    params = params_all_asympt),
-  params = params_all_asympt,
-  prev_levels = prev_levels,
-  scenario = "All asymptomatic"
-)
-Sys.time()
-
-dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_all_asympt)
-
-#all symptomatic
-params_all_sympt <- params
-params_all_sympt$prob_asympt = 0
-
-Sys.time()
-dt_metrics_all_sympt <- sim_calc_metrics(
-  dt_raw_metrics = sim_quarantine_lnorm(
-    dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-    params = params_all_sympt),
-  params = params_all_sympt,
-  prev_levels = prev_levels,
-  scenario = "All symptomatic"
-)
-Sys.time()
-
-dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_all_sympt)
-
-#Perfect sensitivity
-params_sn_perfect <- params
-params_sn_perfect$sn_asympt = 1
-params_sn_perfect$sn_presympt = 1
-params_sn_perfect$sn_sympt = 1
-
-Sys.time()
-dt_metrics_sn_perfect <- sim_calc_metrics(
-  dt_raw_metrics = sim_quarantine_lnorm(
-    dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-    params = params_sn_perfect),
-  params = params_sn_perfect,
-  prev_levels = prev_levels,
-  scenario = "Perfect test"
-)
-Sys.time()
-
-dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_sn_perfect)
-
-# #Poor senstitivity all
-# params_sn_poor <- params
-# params_sn_poor$sn_asympt = 0.49
-# params_sn_poor$sn_presympt = 0.49
-# params_sn_poor$sn_sympt = 0.42
-# 
-# Sys.time()
-# dt_metrics_sn_perfect <- sim_calc_metrics(
-#   dt_raw_metrics = sim_quarantine_lnorm(
-#     dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-#     params = params_sn_poor),
-#   params = params_sn_poor,
-#   prev_levels = prev_levels,
-#   scenario = "Poor sensitivity"
-# )
-# Sys.time()
-# 
-# dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_sn_perfect)
-
-
-#Poor sensitivity asympt
-params_asympt_sn_poor <- params
-params_asympt_sn_poor$sn_asympt = 0.3
-
-Sys.time()
-dt_metrics_asympt_sn_poor <- sim_calc_metrics(
-  dt_raw_metrics = sim_quarantine_lnorm(
-    dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-    params = params_asympt_sn_poor),
-  params = params_asympt_sn_poor,
-  prev_levels = prev_levels,
-  scenario = "Asympt. sensitivity 30%"
-)
-Sys.time()
-
-dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_asympt_sn_poor)
-
-#Infectioned at quarantine start
-Sys.time()
-dt_metrics_infect_on_arrival <- sim_calc_metrics(
-  dt_raw_metrics = sim_quarantine_lnorm(
-    dt_incubation_dists_lnorm = dt_incubation_dists_lnorm,
-    params = params_asympt_sn_poor,
-    rand_u = FALSE),
-  params = params_asympt_sn_poor,
-  prev_levels = prev_levels,
-  scenario = "Infected on arrival"
-)
-Sys.time()
-
-dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_infect_on_arrival)
-
-fwrite(dt_scenarios, file = "../scenarios.csv")
-
-```
-
 # Key words
 
 SARS-CoV-2, COVID-19, travel and immigration policy, quarantine and isolation
-
-<br> 
 
 # Declarations
 
@@ -362,63 +67,302 @@ SARS-CoV-2, COVID-19, travel and immigration policy, quarantine and isolation
 
 **Code availability:** All code has been uploaded to a public repository.
 
-**Authors’ contributions:** Both authors participated in the study design and analysis. WAR drafted the manuscript, which DLB critically revised.
-
+**Authors’ contributions:** Both authors participated in the study design and analysis and had access to data and code. WAR drafted the manuscript, which DLB critically revised.
 
 #####
 
-# Background
+```{r setup, include=FALSE}
+library(ggplot2)
+library(data.table)
+library(coarseDataTools)
+library(googlesheets4)
+library(gridExtra)
+library(flextable)
+library(officedown)
+library(officer)
+theme_set(theme_bw())
 
-> COVID-19 outbreaks caused by infected arriving travelers are a concern for all countries, particularly those with low community transmission. Consequently, the approach to managing the risk of SARS-CoV-2 transmission from arriving travelers is a critical policy question. A recent study estimated the number of symptomatic infections missed by active monitoring of arriving travelers, accounting for the distribution of SARS-CoV-2 incubation times [@Lauer2020]. While informative, the applicability of this analysis to policy decisions is limited because it did not consider factors such as transmission by asymptomatic and pre-symptomatic travelers, the role of non-compliance, and the use of testing.
-
-
-# Objective
-
-> We evaluated policies of quarantine and testing of arriving travelers and examined the sensitivity of policy choices to assumptions about pre-symptomatic and asymptomatic transmission, test sensitivity, and quarantine and isolation compliance.
-
-# Methods and findings
-
-> We compared policies of mandatory quarantine (0 -- 14 days) alone and combined with testing. For each policy we assessed the expected number of days at risk of community transmission per infected traveler (i.e., days when a person is infectious in the community because they are not in quarantine or isolation). In the base scenario, we assumed 80% of travelers were compliant with quarantine, 80% isolated when symptomatic, 90% isolated after testing positive without symptoms, and 100% isolated after testing positive when symptomatic. For scenarios with testing we assumed antigen testing was performed 24 hours before the end of quarantine and that travelers who did not comply with quarantine were not tested. We assumed a test sensitivity of 70% in pre-symptomatic and symptomatic infectious individuals and 60% in asymptomatic-infectious individuals [@Bisoffi2020].
-
-> We used code from Lauer 2020 to sample 1,000 bootstrapped lognormal parameters for the incubation time distribution [@Lauer2020]. Following Moghadas 2020, we used gamma distributions for the durations of asymptomatic-infectious, pre-symptomatic-infectious, and symptomatic-infectious phases, and we truncated the pre-symptomatic-infectious distribution  from 0.8 to 3 days [@Moghadas2020]. We introduced uncertainty by varying the distributions' mean and variance uniformly by ±20%, and we sampled 1,000 parameter sets for the duration distributions (Figure S1). For each duration parameter set, we simulated 1,000 travelers with asymptomatic infection and 6,000 travelers with symptomatic infection. We determined the time each simulated traveler first became infectious, recovered from being infectious, and first developed symptoms (only for those with symptomatic infections). We assumed that arriving travelers were equally likely to be at any point of their infection. Using expressions described in the supplement, we calculated the average days at risk across all infected travelers assuming 24% of infections were asymptomatic in the base scenario [@Moghadas2020]. We have published all data and code [@Russell2020a].
-
-> In the base scenario, infected travelers were at risk of community transmission 1.7 -- 2.1 days on average with no intervention (Figure 1; Table S2). Assuming a prevalence of 1 active infection per 10,000 travelers and a secondary infection rate of 0.5 per person-day at risk of community transmission, this translated to 8.5 -- 10.4 secondary cases per 10,000 travelers (Figure 2). Even a two-day quarantine was more effective than testing alone (1.1 -- 1.5 days at risk with two-day quarantine vs. 1.5 -- 1.8 with testing alone). Testing had diminishing benefit as the length of quarantine increased (reduction of 0.2, 0.06, and 0.003 days at risk for 2, 7, and 14-day quarantine, respectively). Compliance greatly influenced risk: a 14-day quarantine resulted in 1.3 - 1.6 days at risk assuming low compliance compared to 0 - 0.03 days assuming perfect compliance. If travelers were infected immediately before arriving, their days at risk would be 60% higher than the base scenario assuming no intervention, and testing without quarantine would have little benefit. At the population level, person-days at risk of secondary infection was linear in prevalence (Figure S2). We created a web application that readers can use to interactively assess impact of parameter values on infection risk ([altonrus.shinyapps.io/quarantineapp/](altonrus.shinyapps.io/quarantineapp/)).
+source("../quarantineApp/quarantine-functions.R")
 
 
-# Discussion
-
-> To reduce the risk of SARS-CoV-2 transmission from arriving travelers, quarantine is more effective than testing alone. Testing can add value when longer quarantine is infeasible, but the benefits of testing diminish with quarantine length. Measures to increase compliance with quarantine and isolation can significantly reduce risk. We did not consider household transmission during quarantine, a substantial risk for countries with less strict quarantine enforcement. 
+dt_scenarios <- fread("../scenarios.csv")
 
 
+# dt_scenarios[, scenario := ifelse(scenario == "",
+#                                   "Traveling with symptoms",
+#                                   scenario)]
+dt_scenarios[ , scenario := factor(scenario,
+                                   levels = c(
+                                    "Base scenario",
+                                    "Low compliance",
+                                    "Perfect compliance",
+                                    "Tested twice",
+                                    "All symptomatic",
+                                    "10% asymptomatic",
+                                    "70% asymptomatic",
+                                    "All asymptomatic",
+                                    "Infected on arrival",
+                                    "Traveling with symptoms",
+                                    "100% Sn when infectious",
+                                    "Asympt. sensitivity 30%"
+                                   ))]
 
 
-<!---BLOCK_LANDSCAPE_START--->
+
+fnum <- function(num){
+  return(
+    ifelse( num < 0.1, sprintf("%.3f", round(num,3)),
+            ifelse(num < 1,
+                   sprintf("%.2f", round(num,2)),
+                   sprintf("%.1f", round(num,1))
+                   )
+            )
+  )
+  
+}
+
+```
+
+
+```{r run_sims, include=FALSE, eval=FALSE}
+library(truncdist)
+
+#Incubation time from Lauer 2020 bootstrapped posteriors
+incubation_dist_fit_lnorm <- readRDS("../incubation_dists/ncov_inc_fit_boot.rds")
+dt_incubation_dists_lnorm <- data.table(incubation_dist_fit_lnorm@samples)
+
+
+
+params <- list(
+            prob_asympt = 0.4,
+            prob_isolate_test = 0.9,
+            prob_isolate_sympt = 0.8,
+            prob_isolate_both = 1.0,
+            sn_presympt = 0.7,
+            sn_sympt = 0.7,
+            sn_asympt = 0.6,
+            prob_quarantine_compliance = 0.8,
+            dur_presympt_mean_lb = 1.8,
+            dur_presympt_mean_ub = 2.8,
+            dur_presympt_var_lb = 4.0,
+            dur_presympt_var_ub = 6.0,
+            dur_sympt_mean_lb = 2.6,
+            dur_sympt_mean_ub = 3.9,
+            dur_sympt_var_lb = 3.0,
+            dur_sympt_var_ub = 4.5,
+            dur_asympt_mean_lb = 4.0,
+            dur_asympt_mean_ub = 6.0,
+            dur_asympt_var_lb = 4.0,
+            dur_asympt_var_ub = 6.0,
+            n_iters = 1000,
+            dur_quarantine = c(0, 2, 5, 7, 14),
+            seed = 91,
+            infection_timing = "rand_presympt",
+            test_on_arrival = FALSE
+        )
+
+
+
+#Create scenarios
+add_scenario <- function(dt_scenarios_wide, dt_scenario_long){
+  return(
+    rbind(
+      dt_scenarios_wide,
+      dcast(dt_scenario_long,  quarantine_length+testing+scenario ~ quantile, value.var = "value")
+    )
+  )
+}
+
+#Base scenario
+dt_metrics_basecase <- cbind(
+  run_sim(params = params, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "Base scenario"
+)
+
+
+dt_scenarios <- dcast(dt_metrics_basecase,  quarantine_length+testing+scenario ~ quantile, value.var = "value")
+
+
+
+#Test on arrival
+params.test_twice <- params
+params.test_twice$test_on_arrival = TRUE
+
+Sys.time()
+dt_metrics_test_twice <- cbind(
+  run_sim(params = params.test_twice, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "Tested twice"
+)
+dt_metrics_test_twice <- dt_metrics_test_twice[!(quarantine_length == 0 & testing == 1)]
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_test_twice)
+
+
+#Perfect compliance
+params.perfect_compliance <- params
+params.perfect_compliance$prob_isolate_test = 1
+params.perfect_compliance$prob_isolate_sympt = 1
+params.perfect_compliance$prob_isolate_both = 1
+params.perfect_compliance$prob_quarantine_compliance = 1
+
+Sys.time()
+dt_metrics_perf_compliance <- cbind(
+  run_sim(params = params.perfect_compliance, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "Perfect compliance"
+)
+
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_perf_compliance)
+
+#Low compliance
+params.low_compliance <- params
+params.low_compliance$prob_isolate_test = 0.5
+params.low_compliance$prob_isolate_sympt = 0.5
+params.low_compliance$prob_isolate_both = 0.7
+params.low_compliance$prob_quarantine_compliance = 0.4
+
+
+Sys.time()
+dt_metrics_low_compliance <- cbind(
+  run_sim(params = params.low_compliance, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "Low compliance"
+)
+
+
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_low_compliance)
+
+
+#Low asymptomatic
+params_asympt_low <- params
+params_asympt_low$prob_asympt = .1
+
+Sys.time()
+dt_metrics_asympt_low <- cbind(
+  run_sim(params = params_asympt_low, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "10% asymptomatic"
+)
+
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_asympt_low)
+
+#High asymptomatic
+params_asympt_high <- params
+params_asympt_high$prob_asympt = .7
+
+Sys.time()
+dt_metrics_asympt_high <- cbind(
+  run_sim(params = params_asympt_high, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "70% asymptomatic"
+)
+
+
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_asympt_high)
+
+
+#all asymptomatic
+params_all_asympt <- params
+params_all_asympt$prob_asympt = 1
+
+Sys.time()
+dt_metrics_all_asympt <- cbind(
+  run_sim(params = params_all_asympt, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "All asymptomatic"
+)
+
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_all_asympt)
+
+#all symptomatic
+params_all_sympt <- params
+params_all_sympt$prob_asympt = 0
+
+Sys.time()
+dt_metrics_all_sympt <- cbind(
+  run_sim(params = params_all_sympt, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "All symptomatic"
+)
+
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_all_sympt)
+
+#Perfect sensitivity
+params_sn_perfect <- params
+params_sn_perfect$sn_asympt = 1
+params_sn_perfect$sn_presympt = 1
+params_sn_perfect$sn_sympt = 1
+
+Sys.time()
+dt_metrics_sn_perfect <- cbind(
+  run_sim(params = params_sn_perfect, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "100% Sn when infectious"
+)
+
+
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_sn_perfect)
+
+
+
+#Poor sensitivity asympt
+params_asympt_sn_poor <- params
+params_asympt_sn_poor$sn_asympt = 0.3
+
+Sys.time()
+dt_metrics_asympt_sn_poor <- cbind(
+  run_sim(params = params_asympt_sn_poor, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "Asympt. sensitivity 30%"
+)
+
+
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_asympt_sn_poor)
+
+
+params_inf_on_arrival <- params
+params_inf_on_arrival$infection_timing <- "on_arrival"
+#Infectioned at quarantine start
+Sys.time()
+dt_metrics_infect_on_arrival <- cbind(
+  run_sim(params = params_inf_on_arrival, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "Infected on arrival"
+)
+
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_infect_on_arrival)
+
+
+params_travel_while_symptomatic <- params
+params_travel_while_symptomatic$infection_timing <- "rand_incl_sympt"
+#Traveling while symptomatic
+Sys.time()
+dt_metrics_travel_while_symptomatic <- cbind(
+  run_sim(params = params_travel_while_symptomatic, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
+  scenario = "Traveling with symptoms"
+)
+
+dt_scenarios <- add_scenario(dt_scenarios, dt_metrics_travel_while_symptomatic)
+
+
+fwrite(dt_scenarios, file = "../scenarios.csv")
+
+```
+
 
 ```{r fig_1, include = FALSE}
 
 dt_scenarios[ , testing := factor(testing)]
-dt_scenarios[scenario == "Asymptomatic sensitivity 30%", scenario := "Asympt. sensitivity 30%"]
-dt_scenarios_infected <- dt_scenarios[prev == 1]
 
 
   
 
 
-plt_1 <-    ggplot(data = dt_scenarios_infected)+
-      geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, color = factor(dur_q), group = factor(dur_q)),
+plt_1 <-    ggplot(data = dt_scenarios)+
+      geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, color = factor(quarantine_length), group = factor(quarantine_length)),
                       position = position_dodge(width = 0.2))+
-      facet_wrap(facets=vars(scenario), ncol = 5)+
+      facet_wrap(facets=vars(scenario), ncol = 4)+
       xlab("")+
       ylab("Days at risk of community transmission per infected traveler")+
       scale_color_discrete(name="Quarantine length (days)")+
       scale_x_discrete(labels = c("No test", "Test"))+
-      geom_line(aes(x = testing, y = q0.5, group = factor(dur_q), color = factor(dur_q)), linetype="dashed", position = position_dodge(width = 0.2))+
+      geom_line(aes(x = testing, y = q0.5, group = factor(quarantine_length), color = factor(quarantine_length)), linetype="dashed", position = position_dodge(width = 0.2))+
       theme(legend.position = "bottom")
 
 ggsave(
   "figs/fig1.png",
-  width = 8,
-  height = 5.5,
+  width = 7.5,
+  height = 7.5,
   units = "in"
 )
 
@@ -426,20 +370,12 @@ ggsave(
 ```
 
 
-::: {custom-style="Compact"}
-| **Fig. 1** Expected days at risk of community transmission risk per infectious traveler for ten scenarios. Points indicates the median and bars indicate 98% credible interval for each estimate.  "Low compliance" scenario assumes 40% of travelers comply with quarantine, 50% isolate with symptoms or a positive test, and 70% isolate with both symptoms and a positive test.  Abbreviations: asympt, asymptomatic.
-:::
-
-![](figs/fig1.png)
-<!---BLOCK_LANDSCAPE_STOP--->
-
-
-
-
-
 ```{r fig_2, include = FALSE}
 
+# dt_prev <- dt_scenarios[scenario == "Base scenario"]
+
 dt_scenarios[ , testing := factor(testing)]
+
 
 secondary.labs <- c("0.1 infections/day",
                     "0.5 infections/day",
@@ -448,23 +384,23 @@ names(secondary.labs) <- c(0.1, 0.5, 1)
 
 cols = c("q0.01", "q0.5", "q0.99")
 dt_secondary <- rbind(
-  cbind(dt_scenarios[scenario == "Base scenario" & prev == 1/1000][ , (cols) := lapply(.SD, function(x) x*0.1*10000), .SDcols = cols],
+  cbind(dt_scenarios[scenario == "Base scenario"][ , (cols) := lapply(.SD, function(x) x*0.1*10000*(1/1000)), .SDcols = cols],
         secondary_factor = 0.1),
-  cbind(dt_scenarios[scenario == "Base scenario" & prev == 1/1000][ , (cols) := lapply(.SD, function(x) x*0.5*10000), .SDcols = cols],
+  cbind(dt_scenarios[scenario == "Base scenario"][ , (cols) := lapply(.SD, function(x) x*0.5*10000*(1/1000)), .SDcols = cols],
         secondary_factor = 0.5),
-  cbind(dt_scenarios[scenario == "Base scenario" & prev == 1/1000][ , (cols) := lapply(.SD, function(x) x*1*10000), .SDcols = cols],
+  cbind(dt_scenarios[scenario == "Base scenario"][ , (cols) := lapply(.SD, function(x) x*1*10000*(1/1000)), .SDcols = cols],
         secondary_factor = 1.0)
 )
 
 plt_secondarycases <-  ggplot(data = dt_secondary)+
-      geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, color = factor(dur_q), group = factor(dur_q)),
+      geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, color = factor(quarantine_length), group = factor(quarantine_length)),
                       position = position_dodge(width = 0.2))+
       facet_wrap(facets=vars(secondary_factor), labeller = labeller(secondary_factor = secondary.labs))+
       xlab("")+
       ylab("Secondary infections\nper 10,000 travelers")+
       scale_color_discrete(name="Quarantine length (days)")+
       scale_x_discrete(labels = c("No test", "Test"))+
-      geom_line(aes(x = testing, y = q0.5, group = factor(dur_q), color = factor(dur_q)), linetype="dashed", position = position_dodge(width = 0.2))+
+      geom_line(aes(x = testing, y = q0.5, group = factor(quarantine_length), color = factor(quarantine_length)), linetype="dashed", position = position_dodge(width = 0.2))+
       theme(legend.position = "bottom")
 
 ggsave(
@@ -476,7 +412,96 @@ ggsave(
 
 ```
 
-<br>
+```{r table1, include = FALSE}
+dt_table <- rbind(dt_scenarios)
+
+
+
+dt_table[ , print_txt := paste0(
+   fnum(q0.5),
+  " (", 
+  fnum(q0.01),
+  " - ", 
+  fnum(q0.99),
+  ")"
+)]
+
+dt_table[ , quarantine_length := factor(paste0(quarantine_length, " days"),
+                            levels = c("0 days",
+                                       "2 days",
+                                       "5 days",
+                                       "7 days",
+                                       "14 days")
+                            )]
+dt_table[ , Scenario := scenario]
+dt_table[ , Test := ifelse(testing==1, "T", "NT")]
+
+
+dt_table_wide <- dcast(dt_table, Scenario+Test~quarantine_length, value.var = "print_txt")
+
+
+t1 <- flextable(dt_table_wide)
+t1 <- merge_v(t1, j=1)
+#t1 <- add_header(t1, "0" <- "Quarantine length (days)")
+t1 <- width(t1, j=3:7, 1.3)
+t1 <- width(t1, j=2, 0.5)
+t1 <- width(t1, j=1, 1.2)
+#t1 <- theme_box(t1)
+t1 <- theme_zebra(t1)
+t1 <- fontsize(t1, size = 10, part = "all")
+t1 <- font(t1, fontname = "Times", part = "all")
+t1 <- hline(t1, i=2*(1:10), border = fp_border(color="black"))
+t1 <- border_outer(t1, border = fp_border(color="black"))
+
+```
+
+
+
+
+# Abstract
+
+
+
+
+
+
+# Introduction
+
+> COVID-19 outbreaks caused by infected arriving travelers are a concern for all countries, particularly those with low community transmission. Consequently, the approach to managing the risk of SARS-CoV-2 transmission from arriving travelers is a critical policy question. We evaluated the policy impact of mandatory quarantine for arriving travelers between 0 and 14 days, both alone and combined with testing. 
+
+> Our base scenario assumed 40% of infections were asymptomatic [@CDC2020], 80% of travelers were compliant with quarantine, 80% isolated when symptomatic, 90% isolated after testing positive without symptoms, and 100% isolated after testing positive when symptomatic. For policies that include testing, we assumed antigen testing was performed 24 hours before the end of quarantine and that travelers who did not comply with quarantine were not tested. Our base scenario assumes a test sensitivity of 70% in the pre-symptomatic infectious and symptomatic stages of symptomatic infections and 60% in thee asymptomatic infectious stage of asymptomatic infections [@Bisoffi2020]. We assumed infections were not detectable before the infectious stages. We assessed the expected number of days at risk of community transmission per infected traveler (i.e., days when an infectious traveler is in the community because they are not in quarantine or isolation) across several scenarios.
+
+# Results
+
+> In the base scenario, the average infected traveler was at risk of community transmission `r dt_scenarios[scenario == "Base scenario" & testing == 0 & quarantine_length == 0, paste0(fnum(q0.01), "--", fnum(q0.99))]` days (99% credible interval) with no intervention (Figure 1; Table 1). Assuming a prevalence of 1 active infection per 10,000 travelers and a secondary infection rate of 0.5 per person-day at risk of community transmission, this translated to `r dt_secondary[quarantine_length == 0 & testing == 0 & secondary_factor == 0.5, paste0(fnum(q0.01), "--", fnum(q0.99))]` secondary cases per 10,000 travelers (Figure 2). Even a two-day quarantine was more effective than testing alone (`r dt_scenarios[scenario == "Base scenario" & testing == 0 & quarantine_length == 2, paste0(fnum(q0.01), "--", fnum(q0.99))]` days at risk with two-day quarantine vs. `r dt_scenarios[scenario == "Base scenario" & testing == 1 & quarantine_length == 0, paste0(fnum(q0.01), "--", fnum(q0.99))]` with testing alone). Testing had diminishing benefit as the length of quarantine increased (reduction of `r fnum(dt_scenarios[scenario == "Base scenario" & quarantine_length == 2 & testing == 0, q0.5] - dt_scenarios[scenario == "Base scenario" & quarantine_length == 2 & testing == 1, q0.5])`, `r fnum(dt_scenarios[scenario == "Base scenario" & quarantine_length == 7 & testing == 0, q0.5] - dt_scenarios[scenario == "Base scenario" & quarantine_length == 7 & testing == 1, q0.5])`, and `r fnum(dt_scenarios[scenario == "Base scenario" & quarantine_length == 14 & testing == 0, q0.5] - dt_scenarios[scenario == "Base scenario" & quarantine_length == 14 & testing == 1, q0.5])` days at risk for 2, 7, and 14-day quarantine, respectively). Compliance greatly influenced risk: a 14-day quarantine resulted in `r dt_scenarios[scenario == "Low compliance" & testing == 0 & quarantine_length == 14, paste0(fnum(q0.01), "--", fnum(q0.99))]` days at risk assuming low compliance compared to `r dt_scenarios[scenario == "Perfect compliance" & testing == 0 & quarantine_length == 14, paste0(fnum(q0.01), "--", fnum(q0.99))]` days assuming perfect compliance. If travelers were infected immediately before arriving, their days at risk would be `r paste0(round(100*(dt_scenarios[scenario == "Infected on arrival" & testing == 0 & quarantine_length == 0, q0.5]/dt_scenarios[scenario == "Base scenario" & testing == 0 & quarantine_length == 0, q0.5] - 1),0),"%")` higher than the base scenario assuming no intervention, and testing without quarantine would have little benefit.. We created a web application that readers can use to interactively assess impact of parameter values on infection risk ([https://shiny.mchi.mcgill.ca/arussel/quarantineTesting/](shiny.mchi.mcgill.ca/arussel/quarantineTesting/)).
+
+# Discussion
+
+> To reduce the risk of SARS-CoV-2 transmission from arriving travelers, quarantine is more effective than testing alone. Testing can add value when longer quarantine is infeasible, but the benefits of testing diminish with quarantine length. Measures to increase compliance with quarantine and isolation can significantly reduce risk. The acceptable level of risk will be context-specific. For instance, countries may prefer stricter policies when local transmission is very low, since new outbreaks could necessitate costly lock-downs, or during a large outbreak, since new transmission chains could exhaust healthcare resources. We did not consider household transmission during quarantine, a substantial risk for countries with less strict quarantine enforcement. 
+
+# Materials and methods
+
+> We used code from Lauer 2020 to sample 1,000 bootstrapped lognormal parameters for the incubation time distribution [@Lauer2020]. Following Moghadas 2020, we used gamma distributions for the durations of asymptomatic-infectious, pre-symptomatic-infectious, and symptomatic-infectious phases, and we truncated the pre-symptomatic-infectious distribution  from 0.8 to 3 days [@Moghadas2020]. We introduced uncertainty by varying the distributions' mean and variance uniformly by ±20%, and we sampled 1,000 parameter sets for the duration distributions (Figure S1). For each duration parameter set, we simulated 1,000 travelers with asymptomatic infection and 6,000 travelers with symptomatic infection. We determined the time each simulated traveler first became infectious, recovered from being infectious, and first developed symptoms (only for those with symptomatic infections). We assumed that arriving travelers were equally likely to be at any point of their infection. Using expressions described in the supplement, we calculated the average days at risk across all infected travelers assuming 24% of infections were asymptomatic in the base scenario [@Moghadas2020]. We have published all data and code [@Russell2020a].
+
+
+
+
+
+#####
+
+
+::: {custom-style="Compact"}
+| **Fig. 1** Expected days at risk of community transmission risk per infectious traveler for ten scenarios. Points indicates the median and bars indicate 98% credible interval for each estimate.  "Low compliance" scenario assumes 40% of travelers comply with quarantine, 50% isolate with symptoms or a positive test, and 70% isolate with both symptoms and a positive test.  Abbreviations: asympt, asymptomatic.
+:::
+
+![](figs/fig1.png)
+
+
+
+
+
+
+#####
 
 ::: {custom-style="Compact"}
 | **Fig. 2** Secondary cases per 10,000 travelers for each policy by expected number of secondary infections per infectious person-day in community (base scenario). Assuming SARS-CoV-2 prevalence of 1 in 1,000 travelers. Points indicates the median and bars indicate 98% credible interval for each estimate.
@@ -484,7 +509,22 @@ ggsave(
 
 ![](figs/fig2.png)
 
-#####
+
+
+<!---BLOCK_LANDSCAPE_START--->
+
+
+::: {custom-style="Compact"}
+| **Table S1** Expected days at risk of community transmission risk per infectious traveler for ten scenarios based on quarantine length and testing. Median and 98% credible interval provided. Abbreviations: asympt, asymptomatic; T, test used; NT, no testing used.
+:::
+
+
+
+`r t1`
+
+<!---BLOCK_LANDSCAPE_STOP--->
+
+
 
 # References
 
@@ -493,14 +533,8 @@ ggsave(
 
 #####
 \setcounter{page}{0}
-######## Effectiveness of quarantine and testing to limit new COVID-19 cases from arriving travelers
 
-######## Supplement
-
-
-W. Alton Russell, MS, David L. Buckeridge, MD, PhD, FRCPC
-
-<br>
+#### Supplemental methods
 
 # Calculation of days at risk based on quarantine duration and testing
 
@@ -548,64 +582,10 @@ P_{q} \Big[
 \Big]^+
 $$
 
-<!---BLOCK_LANDSCAPE_START--->
 
 
-::: {custom-style="Compact"}
-| **Table S1** Expected days at risk of community transmission risk per infectious traveler for ten scenarios based on quarantine length and testing. Median and 98% credible interval provided. Abbreviations: asympt, asymptomatic; T, test used; NT, no testing used.
-:::
-
-```{r table1, include = FALSE}
-dt_table <- dt_scenarios[prev == 1]
 
 
-cust_format <- function(q){
-  return(
-    signif(round(q, 3), digits=3)
-  )
-}
-
-dt_table[ , print_txt := paste0(
-   cust_format(q0.5),
-  " (", 
-  cust_format(q0.01),
-  " - ", 
-  cust_format(q0.99),
-  ")"
-)]
-
-dt_table[ , dur_q := factor(paste0(dur_q, " days"),
-                            levels = c("0 days",
-                                       "2 days",
-                                       "5 days",
-                                       "7 days",
-                                       "14 days")
-                            )]
-dt_table[ , Scenario := scenario]
-dt_table[ , Test := ifelse(testing==1, "T", "NT")]
-
-
-dt_table_wide <- dcast(dt_table, Scenario+Test~dur_q, value.var = "print_txt")
-
-
-t1 <- flextable(dt_table_wide)
-t1 <- merge_v(t1, j=1)
-#t1 <- add_header(t1, "0" <- "Quarantine length (days)")
-t1 <- width(t1, j=3:7, 1.3)
-t1 <- width(t1, j=2, 0.5)
-t1 <- width(t1, j=1, 1.2)
-#t1 <- theme_box(t1)
-t1 <- theme_zebra(t1)
-t1 <- fontsize(t1, size = 10, part = "all")
-t1 <- font(t1, fontname = "Times", part = "all")
-t1 <- hline(t1, i=2*(1:10), border = fp_border(color="black"))
-t1 <- border_outer(t1, border = fp_border(color="black"))
-
-```
-
-`r t1`
-
-<!---BLOCK_LANDSCAPE_STOP--->
 
 
 
@@ -707,35 +687,28 @@ ggsave("figs/fig_distribution_sampling.png",
 ```{r fig_S2, include = FALSE}
 prev.labs <- c("Pr = 1 in 100", "Pr = 1 in 1,000", "Pr = 1 in 10,000")
 names(prev.labs) <- c(1/100, 1/1000, 1/10000)
-dt_scenarios[ , prev := factor(prev)]
-
-# plt_scenario <- function(scenario_name, dt_scenarios){
-#   return(
-#     ggplot(data = dt_scenarios[scenario == scenario_name])+
-#       geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, color = factor(dur_q), group = factor(dur_q)),
-#                       position = position_dodge(width = 0.2))+
-#       facet_wrap(cols=vars(prev), labeller = labeller(prev = prev.labs))+
-#       xlab("")+
-#       ylab("Person-days at risk per 10,000 travelers")+
-#       scale_color_discrete(name="Quarantine length (days)")+
-#       scale_x_discrete(labels = c("No test", "Test"))+
-#       geom_line(aes(x = testing, y = q0.5, group = factor(dur_q), color = factor(dur_q)), linetype="dashed")+
-#       theme(legend.position = "bottom")+
-#       #scale_y_log10(limits = c(min(dt_scenarios$q0.01), max(dt_scenarios$q0.99)))+
-#       ggtitle(scenario_name)
-#   )
-# }
 
 
-plt_persondays <-  ggplot(data = dt_scenarios[scenario == "Base scenario" & prev != 1])+
-      geom_pointrange(aes(x = testing, y = q0.5*1e4, ymin = q0.01*1e4, ymax = q0.99*1e4, color = factor(dur_q), group = factor(dur_q)),
+cols = c("q0.01", "q0.5", "q0.99")
+dt_prev <- rbind(
+  cbind(dt_scenarios[scenario == "Base scenario"][ , (cols) := lapply(.SD, function(x) x*10000*(1/100)), .SDcols = cols],
+        prev = (1/100)),
+  cbind(dt_scenarios[scenario == "Base scenario"][ , (cols) := lapply(.SD, function(x) x*10000*(1/1000)), .SDcols = cols],
+        prev = (1/1000)),
+  cbind(dt_scenarios[scenario == "Base scenario"][ , (cols) := lapply(.SD, function(x) x*10000*(1/10000)), .SDcols = cols],
+        prev = (1/10000))
+)
+
+
+plt_persondays <-  ggplot(data = dt_prev)+
+      geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, color = factor(quarantine_length), group = factor(quarantine_length)),
                       position = position_dodge(width = 0.2))+
       facet_wrap(facets=vars(prev), labeller = labeller(prev = prev.labs), scales = "free_y")+
       xlab("")+
       ylab("Person-days at risk\nper 10,000 travelers")+
       scale_color_discrete(name="Quarantine length (days)")+
       scale_x_discrete(labels = c("No test", "Test"))+
-      geom_line(aes(x = testing, y = q0.5*1e4, group = factor(dur_q), color = factor(dur_q)), linetype="dashed", position = position_dodge(width = 0.2))+
+      geom_line(aes(x = testing, y = q0.5, group = factor(quarantine_length), color = factor(quarantine_length)), linetype="dashed", position = position_dodge(width = 0.2))+
       theme(legend.position = "bottom")
 
 

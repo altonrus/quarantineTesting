@@ -173,10 +173,11 @@ ui <- tagList(
                                                  min = 0,
                                                  max = 1,
                                                  value = 1.0),
-                                     radioButtons("rand_u",
+                                     radioButtons("infection_timing",
                                                   "How long are travelers infected before arriving?",
-                                                  c("Infection has progressed a random percent 0% - 100%" = TRUE,
-                                                  "Infected immediately before arriving" = FALSE))
+                                                  c("Infection progresssion random and does not include symptomatic phase" = "rand_presympt",
+                                                  "Infection progression random including symptomatic phase" = "rand_inclsympt",
+                                                  "Infected immediately before arriving" = "inf_upon_arrival"))
                               )
                               
                           ),
@@ -334,7 +335,7 @@ server <- function(input, output, session) {
             prob_asympt = input$prob_asympt,
             prob_isolate_test = input$prob_isolate_test,
             prob_isolate_sympt = input$prob_isolate_sympt,
-            prob_isolate_both = 1.0,
+            prob_isolate_both = input$prob_isolate_both,
             sn_presympt = input$sn_presympt,
             sn_sympt = input$sn_sympt,
             sn_asympt = input$sn_asympt,
@@ -354,10 +355,10 @@ server <- function(input, output, session) {
             n_iters = as.numeric(input$n_iters),
             dur_quarantine = as.numeric(input$dur_quarantine),
             seed = input$RNseed,
-            rand_u = input$rand_u
+            infection_timing = input$infection_timing
         )
         #Run simulation
-        Values$dt_raw <<- run_sim(sim_params, dt_incubation_dists_lnorm)
+        Values$dt_raw <<- run_sim(sim_params, dt_incubation_dists_lnorm, progress = TRUE)
         })
     
     observeEvent(input$reset, {
@@ -374,7 +375,7 @@ server <- function(input, output, session) {
         reset("prob_isolate_sympt")
         reset("prob_isolate_test")
         reset("prob_isolate_both")
-        reset("rand_u")
+        reset("infection_timing")
         
         Values$dt_raw <- fread("dt_raw.csv")
         
