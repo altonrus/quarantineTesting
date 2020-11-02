@@ -132,7 +132,7 @@ ui <- tagList(
                                      radioButtons("infection_timing",
                                                   "How long are travelers infected before arriving?",
                                                   c("Infection progresssion random and does not include symptomatic phase (i.e., no one is traveling with symptoms" = "rand_presympt",
-                                                    "Infection progression random including symptomatic phase (i.e., people are traveling with symptoms)" = "rand_inclsympt",
+                                                    "Infection progression random including symptomatic phase (i.e., people are traveling with symptoms)" = "rand_incl_sympt",
                                                     "Infected immediately before arriving" = "inf_upon_arrival")),
                                      br(),
                                      radioButtons("test_on_arrival",
