@@ -195,22 +195,55 @@ run_sim_inner_loop <- function(n_sympt,
 
 
 
+
 calc_presympt_days_in_community <- function(quarantine_length, dt_sympt, params, test = 0){
   if(test == 0){
-    return(
-      dt_sympt[ , sum(
-        pmax(0,(1-params$prob_quarantine_compliance)*
-               (t_sympt_start - pmax(t_infectious_start, dur_infected_prequarantine)))+
-          pmax(0,params$prob_quarantine_compliance*
-                 (t_sympt_start - pmax(t_infectious_start, quarantine_length+dur_infected_prequarantine))
-          )
-      )/nrow(dt_sympt)]
-    )
-  } else {
     if (params$test_on_arrival == FALSE){
       return(
         dt_sympt[ , sum(
-          #Noncompliant with quarantine, not tested
+          (1-params$prob_quarantine_compliance)*
+            pmax(0,t_sympt_start - pmax(t_infectious_start, dur_infected_prequarantine))+
+            params$prob_quarantine_compliance*
+            pmax(0,t_sympt_start - pmax(t_infectious_start, quarantine_length+dur_infected_prequarantine)
+            )
+        )/nrow(dt_sympt)]
+      )
+    } else {
+      #Testing all on arrival
+      return(
+        dt_sympt[ , sum(
+          ifelse(dur_infected_prequarantine < t_infectious_start,
+                 #Tested before infectious
+                 #noncompliant
+                 (1-params$prob_quarantine_compliance)*
+                   (t_sympt_start - t_infectious_start)+
+                   #compliant
+                   params$prob_quarantine_compliance*
+                   pmax(0, t_sympt_start - pmax(t_infectious_start, quarantine_length+dur_infected_prequarantine)),
+                 #Tested after infectious
+                 #noncompliant
+                 (1-params$prob_quarantine_compliance)*
+                   (
+                     #Negative test or fail to isolate with positive test
+                     ((1-params$sn_presympt) + params$sn_presympt*(1-params$prob_isolate_test))*
+                       pmax(0,t_sympt_start - dur_infected_prequarantine)
+                     )+
+                       #compliant
+                       params$prob_quarantine_compliance*
+                       #Negative test or fail to isolate with positive test
+                       ((1-params$sn_presympt) + params$sn_presympt*(1-params$prob_isolate_test))*
+                       pmax(0, t_sympt_start - (quarantine_length+dur_infected_prequarantine))
+                 )
+        )/nrow(dt_sympt)]
+      )
+    }
+    
+  } else {
+    #Test 24hr before quarantine end
+    if (params$test_on_arrival == FALSE){
+      return(
+        dt_sympt[ , sum(
+          #Noncompliant with quarantine; not tested second time
           pmax(0,(1-params$prob_quarantine_compliance)*
                  (t_sympt_start - pmax(t_infectious_start, dur_infected_prequarantine)))+
             params$prob_quarantine_compliance*
@@ -220,160 +253,228 @@ calc_presympt_days_in_community <- function(quarantine_length, dt_sympt, params,
                         t_sympt_start - pmax(dur_infected_prequarantine+quarantine_length, t_infectious_start),
                         #tested while presymtomatic or after
                         ((1-params$sn_presympt)+params$sn_presympt*(1-params$prob_isolate_test))* #prob test neg or test pos & refuse to isolate
-                          (t_sympt_start - (quarantine_length+dur_infected_prequarantine)))
+                          (t_sympt_start - pmax(t_infectious_start, quarantine_length+dur_infected_prequarantine)))
             )
         )/nrow(dt_sympt)]
       )
-    } else {
-      
-      
+    } else { #TEST_ON_ARRIVAL = TRUE
       return(
         dt_sympt[ , sum(
-          #Noncompliant with quarantine, not tested
-          pmax(0,(1-params$prob_quarantine_compliance)*
-                 (t_sympt_start - pmax(t_infectious_start, dur_infected_prequarantine)))+
-            params$prob_quarantine_compliance*
-            pmax(0,
-                 ifelse(quarantine_length+dur_infected_prequarantine-1 < t_infectious_start,
-                        #Both tests were before infectious and therefore were negative
-                        t_sympt_start - pmax(dur_infected_prequarantine+quarantine_length, t_infectious_start),
-                        ifelse(dur_infected_prequarantine < t_infectious_start, 
-                               #First test was before infectious and therefore negative
-                               ((1-params$sn_presympt)+params$sn_presympt*(1-params$prob_isolate_test))* #prob test neg or test pos & refuse to isolate
-                                 (t_sympt_start - (quarantine_length+dur_infected_prequarantine)),
-                               
-                               #First and second test were both after infectiousness began
-                               (#prob (both tests neg) OR (at least one test pos but refused to isolate)
-                                 (1-params$sn_presympt)^2+(1 - (1 - params$sn_presympt)^2)*(1-params$prob_isolate_test))* 
-                                 (t_sympt_start - (quarantine_length+dur_infected_prequarantine))
-                                )
-                        )
-            )
+          ifelse(dur_infected_prequarantine < t_infectious_start,
+                 #Not yet detectable on arrival
+                 #Noncompliant with quarantine; not tested second time
+                 (1-params$prob_quarantine_compliance)*
+                   (t_sympt_start - t_infectious_start)+
+                   #Compliant with quarantine
+                   params$prob_quarantine_compliance*
+                   ifelse(quarantine_length+dur_infected_prequarantine-1 < t_infectious_start,
+                          #tested before infectious
+                          pmax(0, t_sympt_start - pmax(dur_infected_prequarantine+quarantine_length, t_infectious_start)),
+                          #tested while presymtomatic or after
+                          ((1-params$sn_presympt)+params$sn_presympt*(1-params$prob_isolate_test))* #prob test neg or test pos & refuse to isolate
+                            pmax(0,t_sympt_start - (quarantine_length+dur_infected_prequarantine))),
+                 #Detectable (presymptomatic infectious) on arrival
+                 #Noncompliant with quarantine; only tested first time
+                 (1-params$prob_quarantine_compliance)*
+                   ((1 - params$sn_presympt) + params$sn_presympt*(1 - params$prob_isolate_test))*#test negative OR test positive and refuse to quarantine
+                   pmax(0,(t_sympt_start - dur_infected_prequarantine))+
+                   
+                   #Compliant with quarantine
+                   params$prob_quarantine_compliance*
+                   ((1-params$sn_presympt)^2+(1- (1-params$sn_presympt)^2)*(1-params$prob_isolate_test))* #prob test neg or test pos & refuse to isolate
+                   pmax(0, t_sympt_start - (quarantine_length+dur_infected_prequarantine))
+                 )
         )/nrow(dt_sympt)]
       )
       
     }
-
+    
   }
 }
 
 
+
+
 calc_sympt_days_in_community <- function(quarantine_length, dt_sympt, params, test = 0){
   if(test == 0){
-    return(
-      dt_sympt[ , sum(
-        #probability no isolation with symptoms
-        (1-params$prob_isolate_sympt)*
-          (#noncompliant with quarantine
-            pmax(0,(1-params$prob_quarantine_compliance)*(t_recovery - pmax(t_sympt_start, dur_infected_prequarantine)))+
-              #compliant with quarantine
-              params$prob_quarantine_compliance*
-              pmax(0,
-                   t_recovery - pmax(t_sympt_start, dur_infected_prequarantine+quarantine_length)
-              )
+    #No testing 24hr before quarantine end
+    if (params$test_on_arrival == FALSE){
+      return(
+        dt_sympt[ , sum(
+          #probability no isolation with symptoms
+          (1-params$prob_isolate_sympt)*
+            (#noncompliant with quarantine
+              (1-params$prob_quarantine_compliance)*pmax(0,t_recovery - pmax(t_sympt_start, dur_infected_prequarantine))+
+                #compliant with quarantine
+                params$prob_quarantine_compliance*
+                pmax(0,
+                     t_recovery - pmax(t_sympt_start, dur_infected_prequarantine+quarantine_length)
+                )
+            )
+        )/nrow(dt_sympt)]
+      )
+    } else{
+      #test on arrival
+      return(
+        dt_sympt[ , sum(
+          ifelse(dur_infected_prequarantine < t_infectious_start,
+                 #Not yet detectable on arrival; same as if no testing on arrival
+                 #probability no isolation with symptoms
+                 (1-params$prob_isolate_sympt)*
+                   #noncompliant with quarantine
+                   (1-params$prob_quarantine_compliance)*(t_recovery - t_sympt_start)+
+                   #compliant with quarantine
+                   params$prob_quarantine_compliance*
+                   (1-params$prob_isolate_sympt)*
+                   pmax(0, t_recovery - pmax(t_sympt_start, dur_infected_prequarantine+quarantine_length)),
+                 ifelse(dur_infected_prequarantine < t_sympt_start,
+                        #Presymptomatic on arrival
+                        #noncompliant; only tested on arrival
+                        (1-params$prob_quarantine_compliance)*
+                          (
+                            #Negative test & fail to isolate symptoms OR fail to isolate with positive test AND Symptoms
+                            ((1-params$sn_presympt)*(1-params$prob_isolate_sympt) + 
+                               params$sn_presympt*(1-params$prob_isolate_both))*
+                              (t_recovery - t_sympt_start)
+                          )+
+                          #compliant
+                          params$prob_quarantine_compliance*
+                          #Negative test & fail to isolate symptoms OR fail to isolate with positive test AND Symptoms
+                          ((1-params$sn_presympt)*(1-params$prob_isolate_sympt) + 
+                             params$sn_presympt*(1-params$prob_isolate_both))*
+                          pmax(0, (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine))),
+                        #Symptoms started before arrival
+                        #noncompliant
+                        (1-params$prob_quarantine_compliance)*
+                          (
+                            #Negative test & fail to isolate symptoms OR fail to isolate with positive test AND Symptoms
+                            ((1-params$sn_sympt)*(1-params$prob_isolate_sympt) + 
+                               params$sn_sympt*(1-params$prob_isolate_both))*
+                              pmax(0,(t_recovery - dur_infected_prequarantine))
+                          )+
+                          #compliant
+                          params$prob_quarantine_compliance*
+                          #Negative test & fail to isolate symptoms OR fail to isolate with positive test AND Symptoms
+                          ((1-params$sn_sympt)*(1-params$prob_isolate_sympt) + 
+                             params$sn_sympt*(1-params$prob_isolate_both))*
+                          pmax(0, (t_recovery - (quarantine_length+dur_infected_prequarantine)))
+                        )
           )
-      )/nrow(dt_sympt)]
-      
-      
-    )
+        )/nrow(dt_sympt)]
+      )
+    }
+    
   } else {
+    #With testing 24hr before quarantine end
     if (params$test_on_arrival == FALSE){
       return(
         dt_sympt[ , sum(
           #noncompliant
           (1-params$prob_quarantine_compliance)*(1-params$prob_isolate_sympt)*
             pmax(0, t_recovery - pmax(t_sympt_start, dur_infected_prequarantine))+
+            #Compliant
             params$prob_quarantine_compliance*
-            pmax(0,
-                 ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start),
-                        #tested before infectious therefore neg test
-                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine))*
-                          (1-params$prob_isolate_sympt),
-                        ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_sympt_start),
-                               #tested during presymptomatic
-                               #  tested negative
-                               (1-params$sn_presympt)*(1-params$prob_isolate_sympt)*
-                                 (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)) +
-                                 #  tested positive
-                                 params$sn_presympt*(1-params$prob_isolate_both)*
-                                 (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)),
-                               #tested while symptomatic or after
-                               #  tested negative
-                               (1-params$sn_sympt)*(1-params$prob_isolate_sympt)*
-                                 (t_recovery - (quarantine_length + dur_infected_prequarantine))+
-                                 #  tested positive
-                                 params$sn_sympt*(1-params$prob_isolate_both)*
-                                 (t_recovery - (quarantine_length + dur_infected_prequarantine))
+            ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start),
+                   #tested before infectious therefore neg test
+                   pmax(0, t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine))*
+                     (1-params$prob_isolate_sympt),
+                   ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_sympt_start),
+                          #tested during presymptomatic
+                          (#  tested negative
+                            (1-params$sn_presympt)*(1-params$prob_isolate_sympt) +
+                            #  tested positive
+                            params$sn_presympt*(1-params$prob_isolate_both))*
+                            pmax(0, t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)),
+                          #tested while symptomatic or after
+                          (#  tested negative
+                            (1-params$sn_sympt)*(1-params$prob_isolate_sympt)+
+                            #  tested positive
+                            params$sn_sympt*(1-params$prob_isolate_both))*
+                            pmax(0, t_recovery - (quarantine_length + dur_infected_prequarantine))
                         )
                  )
-            )
+            
           
         )/nrow(dt_sympt)]
       )
-    } else {
+    } else { #TESTING ALL ON ARRIVAL
       
       return(
         dt_sympt[ , sum(
-          #noncompliant
-          (1-params$prob_quarantine_compliance)*(1-params$prob_isolate_sympt)*
-            pmax(0, t_recovery - pmax(t_sympt_start, dur_infected_prequarantine))+
-            params$prob_quarantine_compliance*
-            pmax(0,
-                 ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start),
-                        #both tests before infectious therefore neg test
-                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine))*
-                          (1-params$prob_isolate_sympt),
-                        #Second test (and perhaps first) are after infectiousness begins
-                        ifelse(dur_infected_prequarantine < t_infectious_start,
-                               #First test is before infectiousness began
-                               ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_sympt_start),
+          ifelse(dur_infected_prequarantine < t_infectious_start,
+                 #Not yet detectable on arrival; same as if no testing on arrival
+                 #noncompliant
+                 (1-params$prob_quarantine_compliance)*(1-params$prob_isolate_sympt)*
+                   (t_recovery - t_sympt_start)+
+                   #compliant
+                   params$prob_quarantine_compliance*
+                   ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start),
+                          #second test before infectious therefore neg test
+                          (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine))*
+                            (1-params$prob_isolate_sympt),
+                          ifelse(quarantine_length+dur_infected_prequarantine - 1 < t_sympt_start,
                                       #tested during presymptomatic
-                                      #  tested negative and does not isolate due to symptoms
-                                      (1-params$sn_presympt)*(1-params$prob_isolate_sympt)*
-                                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)) +
+                                      (#  tested negative
+                                        (1-params$sn_presympt)*(1-params$prob_isolate_sympt)+
                                         #  tested positive
-                                        params$sn_presympt*(1-params$prob_isolate_both)*
-                                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)),
-                                      #tested while symptomatic or after
-                                      #  tested negative
-                                      (1-params$sn_sympt)*(1-params$prob_isolate_sympt)*
-                                        (t_recovery - (quarantine_length + dur_infected_prequarantine))+
-                                        #  tested positive
-                                        params$sn_sympt*(1-params$prob_isolate_both)*
-                                        (t_recovery - (quarantine_length + dur_infected_prequarantine))
-                               ),
-                               #First test is after infectousness began
-                               ifelse((quarantine_length+dur_infected_prequarantine - 1 < t_sympt_start),
-                                      #both tests are during presymptomatic phase
-                                      #  tested negative and does not isolate due to symptoms
-                                      (1-params$sn_presympt)^2*(1-params$prob_isolate_sympt)*
-                                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)) +
-                                        #  tested positive
-                                        (1 - (1-params$sn_presympt)^2)*(1-params$prob_isolate_both)*
-                                        (t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)),
-                                      ifelse(1,
-                                              #First test during presymptomatic phase; second test is after
-                                             #  tested negative
-                                             (1-params$sn_sympt)*(1-params$sn_asympt)*(1-params$prob_isolate_sympt)*
-                                               (t_recovery - (quarantine_length + dur_infected_prequarantine))+
-                                               #  tested positive
-                                               (1 - (1-params$sn_sympt)*(1-params$sn_asympt) ) *(1-params$prob_isolate_both)*
-                                               (t_recovery - (quarantine_length + dur_infected_prequarantine)),
-                                              #Both tests are after presymptomatic phase
-                                              #  tested negative
-                                              (1-params$sn_sympt)^2*(1-params$prob_isolate_sympt)*
-                                                (t_recovery - (quarantine_length + dur_infected_prequarantine))+
-                                                #  tested positive
-                                                (1 - (1-params$sn_sympt)^2) *(1-params$prob_isolate_both)*
-                                                (t_recovery - (quarantine_length + dur_infected_prequarantine))
-                                              )      
+                                        params$sn_presympt*(1-params$prob_isolate_both))*
+                                        pmax(0, t_recovery - pmax(t_sympt_start, quarantine_length+dur_infected_prequarantine)),
+                                 #tested while symptomatic or after
+                                 (#  tested negative
+                                   (1-params$sn_sympt)*(1-params$prob_isolate_sympt)+
+                                     #  tested positive
+                                     params$sn_sympt*(1-params$prob_isolate_both))*
+                                   pmax(0, t_recovery - (quarantine_length + dur_infected_prequarantine))
                                )
-                        )
+                          ),
+                 ifelse(dur_infected_prequarantine < t_sympt_start ,
+                        #Presymptomatic on arrival
+                        #noncompliant with quarantine; still gets tested on arrival
+                        (1-params$prob_quarantine_compliance)*(
+                          (#tests neg; does not isolate based on symptoms
+                            (1-params$sn_presympt)*(1-params$prob_isolate_sympt)+
+                              #Tests positive; does not isolate based on symptoms + test
+                              params$sn_presympt*(1-params$prob_isolate_both))*
+                            (t_recovery - t_sympt_start)
+                        ) +
+                          #Compliant with quarantine
+                          params$prob_quarantine_compliance*
+                          (
+                            ifelse(quarantine_length+dur_infected_prequarantine - 1 < t_sympt_start,
+                              #Still presymptomatic for second test
+                              #Compliant with quarantine; tested twice while presymptomatic
+                                (#tests neg both times; does not isolate based on symptoms
+                                  (1-params$sn_presympt)^2*(1-params$prob_isolate_sympt)+
+                                    #Tests positive; does not isolate based on symptoms + test
+                                    (1 - (1-params$sn_presympt)^2)*(1-params$prob_isolate_both))*
+                                  pmax(0, t_recovery - pmax(t_sympt_start, dur_infected_prequarantine+quarantine_length)),
+                              #Symptomatic for second test
+                              (#tests neg both times; does not isolate based on symptoms
+                                (1-params$sn_presympt)*(1-params$sn_sympt)*(1-params$prob_isolate_sympt)+
+                                  #Tests positive; does not isolate based on symptoms + test
+                                  (1 - (1-params$sn_presympt)*(1-params$sn_sympt))*(1-params$prob_isolate_both))*
+                                pmax(0, t_recovery - (dur_infected_prequarantine+quarantine_length))
+                            )
+                          ),
+                         #Symptomatic on arrival
+                         #noncompliant with quarantine; still gets tested on arrival
+                         (1-params$prob_quarantine_compliance)*(
+                          (#tests neg; does not isolate based on symptoms
+                            (1-params$sn_sympt)*(1-params$prob_isolate_sympt)+
+                              #Tests positive; does not isolate based on symptoms + test
+                              (params$sn_sympt*(1-params$prob_isolate_both)))*
+                            pmax(0, t_recovery - dur_infected_prequarantine)
+                         ) +
+                          #Compliant with quarantine; tested twice while symptomatic
+                          params$prob_quarantine_compliance*(
+                            (#tests neg both times; does not isolate based on symptoms
+                              (1-params$sn_sympt)^2*(1-params$prob_isolate_sympt)+
+                                #Tests positive; does not isolate based on symptoms + test
+                                (1 - (1-params$sn_sympt)^2)*(1-params$prob_isolate_both))*
+                              pmax(0, t_recovery - (dur_infected_prequarantine+quarantine_length))
+                          )
                  )
-                        
-                        
-            )
-          
+          )
         )/nrow(dt_sympt)]
       )
     }
@@ -383,20 +484,48 @@ calc_sympt_days_in_community <- function(quarantine_length, dt_sympt, params, te
 
 
 
-
-
-
 calc_asympt_days_in_community <- function(quarantine_length, dt_asympt, params, test = 0){
   if(test == 0){
-    return(
-      dt_asympt[ , sum(
-        pmax(0,(1-params$prob_quarantine_compliance)*
-               (t_recovery - pmax(dur_infected_prequarantine, t_infectious_start)))+
-          pmax(0, params$prob_quarantine_compliance*
-                 (t_recovery - pmax(t_infectious_start, quarantine_length+dur_infected_prequarantine)))
-      )/nrow(dt_asympt)]
-    )
+    if (params$test_on_arrival == FALSE){
+      return(
+        dt_asympt[ , sum(
+          #Non-compliant
+          (1-params$prob_quarantine_compliance)*
+            pmax(0,(t_recovery - pmax(dur_infected_prequarantine, t_infectious_start)))+
+            #Compliant
+            params$prob_quarantine_compliance*
+            pmax(0, (t_recovery - pmax(t_infectious_start, quarantine_length+dur_infected_prequarantine)))
+        )/nrow(dt_asympt)]
+      )
+    } else {
+      #Testing all on arrival
+      return(
+        dt_asympt[ , sum(
+          ifelse(dur_infected_prequarantine < t_infectious_start,
+                 #Tested before infectious
+                 #noncompliant
+                 (1-params$prob_quarantine_compliance)*
+                   (t_recovery - t_infectious_start)+
+                   #compliant
+                   params$prob_quarantine_compliance*
+                   pmax(0, (t_recovery - pmax(t_infectious_start, quarantine_length+dur_infected_prequarantine))),
+                 #Tested after infectious
+                 #noncompliant
+                 (1-params$prob_quarantine_compliance)*
+                   #Negative test or fail to isolate with positive test
+                   ((1-params$sn_asympt) + params$sn_asympt*(1-params$prob_isolate_test))*
+                   pmax(0,(t_recovery - dur_infected_prequarantine))+
+                   #compliant
+                   params$prob_quarantine_compliance*
+                   #Negative test or fail to isolate with positive test
+                   ((1-params$sn_asympt) + params$sn_asympt*(1-params$prob_isolate_test))*
+                   pmax(0, (t_recovery - (quarantine_length+dur_infected_prequarantine))))
+        )/nrow(dt_asympt)]
+      )
+    }
+    
   } else {
+    #Test 24hr before quarantine end
     if (params$test_on_arrival == FALSE){
       return(
         dt_asympt[ , sum(
@@ -414,33 +543,41 @@ calc_asympt_days_in_community <- function(quarantine_length, dt_asympt, params, 
             )
         )/nrow(dt_asympt)]
       )
-    } else {
+    } else { #TESTING ALL ON ARRIVAL
       return(
         dt_asympt[ , sum(
-          #No compliance & no test
-          pmax(0, (1-params$prob_quarantine_compliance)*
-                 (t_recovery - pmax(dur_infected_prequarantine, t_infectious_start)))+
-            params$prob_quarantine_compliance*pmax(0, 
-                                                   ifelse(quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start,
-                                                          #both tests are before infectious/detectable
-                                                          t_recovery - pmax(t_infectious_start, dur_infected_prequarantine+quarantine_length),
-                                                          ifelse(dur_infected_prequarantine < t_infectious_start,
-                                                                 #First test was before infectious and therefore was negative
-                                                                 ((1-params$sn_asympt)+params$sn_asympt*(1-params$prob_isolate_test))* #Prob test neg or test pos & refuse to quarantine
-                                                                   (t_recovery - (quarantine_length+dur_infected_prequarantine)),
-                                                                 #Both tests were after infectiousness began
-                                                                 ((1-params$sn_asympt)+params$sn_asympt*(1-params$prob_isolate_test))* #Prob test neg or test pos & refuse to quarantine
-                                                                   (t_recovery - (quarantine_length+dur_infected_prequarantine)))
-                                                   )
-            )
+          ifelse(dur_infected_prequarantine < t_infectious_start,
+                 #Not yet detectable on arrival; same as having no test on arrival
+                 #No compliance & no test
+                 (1-params$prob_quarantine_compliance)*
+                   (t_recovery - t_infectious_start)
+                 +
+                   #Comply
+                   params$prob_quarantine_compliance*
+                   ifelse(quarantine_length+dur_infected_prequarantine - 1 < t_infectious_start,
+                          #tested before infectious/detectable
+                          pmax(0,t_recovery - pmax(t_infectious_start, dur_infected_prequarantine+quarantine_length)),
+                          #tested while or after infectious
+                          ((1-params$sn_asympt)+params$sn_asympt*(1-params$prob_isolate_test))* #Prob test neg or test pos & refuse to quarantine
+                            pmax(0, t_recovery - (quarantine_length+dur_infected_prequarantine))
+                   ),
+                 #Detectable (asymptomatic infectious) on arrival
+                 #Noncompliant with quarantine; only tested first time
+                 (1-params$prob_quarantine_compliance)*
+                   ((1 - params$sn_asympt) + params$sn_asympt*(1 - params$prob_isolate_test))*#test negative OR test positive and refuse to quarantine
+                   pmax(0,(t_recovery - dur_infected_prequarantine))+
+                   
+                   #Compliant with quarantine
+                   params$prob_quarantine_compliance*
+                   ((1-params$sn_asympt)^2+(1- (1-params$sn_asympt)^2)*(1-params$prob_isolate_test))* #prob test neg or test pos & refuse to isolate
+                   pmax(0, (t_recovery - (quarantine_length+dur_infected_prequarantine)))
+                   )
         )/nrow(dt_asympt)]
       )
     }
     
   }
 }
-  
-  
 
 
 

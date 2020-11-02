@@ -129,22 +129,17 @@ ui <- tagList(
                                                   value = 91,
                                                   step = 1),
                                      br(),
-                                     h4("Test sensitivity"),
-                                     sliderInput("sn_presympt",
-                                                 "Sensitivity, pre-symptomatic phase",
-                                                 min = 0,
-                                                 max = 1,
-                                                 value = .70),
-                                     sliderInput("sn_sympt",
-                                                 "Sensitivity, Symptomatic phase",
-                                                 min = 0,
-                                                 max = 1,
-                                                 value = .70),
-                                     sliderInput("sn_asympt",
-                                                 "Sensitivity, asymptomatic phase",
-                                                 min = 0,
-                                                 max = 1,
-                                                 value = .60)
+                                     radioButtons("infection_timing",
+                                                  "How long are travelers infected before arriving?",
+                                                  c("Infection progresssion random and does not include symptomatic phase (i.e., no one is traveling with symptoms" = "rand_presympt",
+                                                    "Infection progression random including symptomatic phase (i.e., people are traveling with symptoms)" = "rand_inclsympt",
+                                                    "Infected immediately before arriving" = "inf_upon_arrival")),
+                                     br(),
+                                     radioButtons("test_on_arrival",
+                                                  "Test all arriving travelers?",
+                                                  c("No" = FALSE,
+                                                    "Yes" = TRUE
+                                                    ))
                               ),
                               column(6,
                                      h4("Probabilities"),
@@ -152,7 +147,7 @@ ui <- tagList(
                                                  "Asymptomatic infection",
                                                  min = 0,
                                                  max = 1,
-                                                 value = .24),
+                                                 value = .40),
                                      sliderInput("prob_quarantine_compliance",
                                                  "Quarantine compliance",
                                                  min = 0,
@@ -173,11 +168,23 @@ ui <- tagList(
                                                  min = 0,
                                                  max = 1,
                                                  value = 1.0),
-                                     radioButtons("infection_timing",
-                                                  "How long are travelers infected before arriving?",
-                                                  c("Infection progresssion random and does not include symptomatic phase" = "rand_presympt",
-                                                  "Infection progression random including symptomatic phase" = "rand_inclsympt",
-                                                  "Infected immediately before arriving" = "inf_upon_arrival"))
+                                     h4("Test sensitivity"),
+                                     sliderInput("sn_presympt",
+                                                 "Sensitivity, pre-symptomatic phase",
+                                                 min = 0,
+                                                 max = 1,
+                                                 value = .70),
+                                     sliderInput("sn_sympt",
+                                                 "Sensitivity, Symptomatic phase",
+                                                 min = 0,
+                                                 max = 1,
+                                                 value = .70),
+                                     sliderInput("sn_asympt",
+                                                 "Sensitivity, asymptomatic phase",
+                                                 min = 0,
+                                                 max = 1,
+                                                 value = .60)
+                                     
                               )
                               
                           ),
@@ -355,7 +362,8 @@ server <- function(input, output, session) {
             n_iters = as.numeric(input$n_iters),
             dur_quarantine = as.numeric(input$dur_quarantine),
             seed = input$RNseed,
-            infection_timing = input$infection_timing
+            infection_timing = input$infection_timing,
+            test_on_arrival = input$test_on_arrival
         )
         #Run simulation
         Values$dt_raw <<- run_sim(sim_params, dt_incubation_dists_lnorm, progress = TRUE)
