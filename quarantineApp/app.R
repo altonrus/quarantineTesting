@@ -131,7 +131,7 @@ ui <- tagList(
                                      br(),
                                      radioButtons("infection_timing",
                                                   "How long are travelers infected before arriving?",
-                                                  c("Infection progresssion random and does not include symptomatic phase (i.e., no one is traveling with symptoms" = "rand_presympt",
+                                                  c("Infection progresssion random and does not include symptomatic phase (i.e., no one is traveling with symptoms)" = "rand_presympt",
                                                     "Infection progression random including symptomatic phase (i.e., people are traveling with symptoms)" = "rand_incl_sympt",
                                                     "Infected immediately before arriving" = "inf_upon_arrival")),
                                      br(),
@@ -253,7 +253,7 @@ ui <- tagList(
 
 
 
-# Define server logic required to draw a histogram
+
 server <- function(input, output, session) {
 
     Values <- reactiveValues(dt_raw = fread("dt_raw.csv"))
@@ -267,7 +267,7 @@ server <- function(input, output, session) {
                 input$sec_cases_per_day)
     })
     
-    #PLOT
+    #MAKE PLOT
     output$sim_plot <- renderPlot(
         if (input$include_test ){
             ggplot(dt_analysis())+
@@ -372,6 +372,7 @@ server <- function(input, output, session) {
         Values$dt_raw <<- run_sim(sim_params, dt_incubation_dists_lnorm, progress = TRUE)
         })
     
+    #RESET
     observeEvent(input$reset, {
         reset("prev")
         reset("sec_cases_per_day")
@@ -387,6 +388,7 @@ server <- function(input, output, session) {
         reset("prob_isolate_test")
         reset("prob_isolate_both")
         reset("infection_timing")
+        reset("test_on_arrival")
         
         Values$dt_raw <- fread("dt_raw.csv")
         

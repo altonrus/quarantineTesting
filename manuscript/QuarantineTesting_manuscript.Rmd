@@ -173,6 +173,9 @@ add_scenario <- function(dt_scenarios_wide, dt_scenario_long){
   )
 }
 
+# dt_raw <- run_sim(params = params, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm)
+# fwrite(dt_raw, file = "../quarantineApp/dt_raw.csv")
+
 #Base scenario
 dt_metrics_basecase <- cbind(
   run_sim(params = params, dt_incubation_dists_lnorm = dt_incubation_dists_lnorm),
