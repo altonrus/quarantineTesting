@@ -58,12 +58,11 @@ ui <- tagList(
                                       column(
                                           width = 6,
                                           radioButtons("metric", "Metric:",
-                                                       c("Days at-risk per infected traveler" = "days",
+                                                       c("Percent risk reduced" = "risk",
+                                                         "Days at-risk per infected traveler" = "days",
+                                                         "Adjusted days at-risk per infected traveler"="adj-days",
                                                          "Person-days per 10,000 travelers" = "person-days",
-                                                         "Secondary cases" = "sec-cases")),
-                                          checkboxInput("include_test",
-                                                        "Include testing?",
-                                                        value = TRUE)
+                                                         "Secondary cases" = "sec-cases"))
                                       ),
                                       column(
                                           width = 6,
@@ -86,7 +85,7 @@ ui <- tagList(
                               column(width = 12, align = "center",
                                      #Plot
                                      h2("Plot"),
-                                     plotOutput("sim_plot", height = "400px", width = "550px"),
+                                     plotOutput("sim_plot", height = "400px", width = "700px"),
                                      br(),
                                      actionButton("reset",
                                                   "Reset to base scenario",
@@ -115,9 +114,34 @@ ui <- tagList(
                                      radioButtons("n_iters", "Number of iterations",
                                                   c("1000 (slow but full accuracy)" = 1000,
                                                     "100 (faster update)" = 100)),
+                                     h5("Quarantine durations (days)"),
                                      selectizeInput(
-                                         "dur_quarantine", 
-                                         "Quarantine durations to compare (days)", 
+                                         "dur_quarantine_alone", 
+                                         "With no test", 
+                                         choices = 0:20,
+                                         multiple = TRUE,
+                                         options = list(create = TRUE),
+                                         selected = c(0, 2, 5, 7, 14)
+                                     ),
+                                     selectizeInput(
+                                         "dur_quarantine_endtest", 
+                                         "With test 24h before quarantine end", 
+                                         choices = 1:20,
+                                         multiple = TRUE,
+                                         options = list(create = TRUE),
+                                         selected = c(0, 2, 5, 7, 14)
+                                     ),
+                                     selectizeInput(
+                                         "dur_quarantine_arrivetest", 
+                                         "With test on arrival", 
+                                         choices = 0:20,
+                                         multiple = TRUE,
+                                         options = list(create = TRUE),
+                                         selected = c(0, 2, 5, 7, 14)
+                                     ),
+                                     selectizeInput(
+                                         "dur_quarantine_pretest", 
+                                         "With test 72h before arrival", 
                                          choices = 0:20,
                                          multiple = TRUE,
                                          options = list(create = TRUE),
@@ -131,17 +155,17 @@ ui <- tagList(
                                      br(),
                                      radioButtons("infection_timing",
                                                   "How long are travelers infected before arriving?",
-                                                  c("Infection progresssion random and does not include symptomatic phase (i.e., no one is traveling with symptoms)" = "rand_presympt",
+                                                  c("Infection progression random but travelers with symptomatic infections are no more than 24h into the symptomatic phase"="rand_nosympt_24hr_before_arrival",
+                                                    "Infection progresssion random and does not include symptomatic phase (i.e., no one is traveling with symptoms)" = "rand_presympt",
                                                     "Infection progression random including symptomatic phase (i.e., people are traveling with symptoms)" = "rand_incl_sympt",
-                                                    "Infected immediately before arriving" = "inf_upon_arrival")),
-                                     br(),
-                                     radioButtons("test_on_arrival",
-                                                  "Test all arriving travelers?",
-                                                  c("No" = FALSE,
-                                                    "Yes" = TRUE
-                                                    ))
+                                                    "Infected immediately before arriving" = "inf_upon_arrival"))
                               ),
                               column(6,
+                                     sliderInput("rr_asympt",
+                                                 "Relative transmission risk of asymptomatic infection",
+                                                 min = 0.2,
+                                                 max = 1.2,
+                                                 value = 0.49),
                                      h4("Probabilities"),
                                      sliderInput("prob_asympt",
                                                  "Asymptomatic infection",
@@ -262,50 +286,55 @@ server <- function(input, output, session) {
         make_dt_analysis(
                 Values$dt_raw,
                 input$metric,
-                input$include_test,
                 input$prev,
                 input$sec_cases_per_day)
     })
     
     #MAKE PLOT
     output$sim_plot <- renderPlot(
-        if (input$include_test ){
-            ggplot(dt_analysis())+
-                geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, 
-                                    color = factor(quarantine_length), group = factor(quarantine_length)),
-                                position = position_dodge(width = 0.2), size=1)+
-                xlab("")+
-                ylab( switch(input$metric,
-                             "days" = "Days at risk per infected traveler",
-                             "person-days" = "Person-days at risk\nper 10,000 travelers",
-                             "sec-cases" = "Secondary cases\nper 10,000 travelers"))+
-                scale_color_discrete(name="Quarantine length (days)")+
-                scale_x_discrete(labels = c("No test", "Test"))+
-                geom_line(aes(x = testing, y = q0.5, group = factor(quarantine_length), 
-                              color = factor(quarantine_length)), linetype="dashed",
-                          position = position_dodge(width = 0.2))+
-                theme_minimal()+
-                theme(legend.position = "bottom",
-                      text = element_text(size = 18))+
-                scale_y_continuous(limits=c(0,NA))
-        } else{
-            ggplot(dt_analysis())+
-                geom_pointrange(aes(x = factor(quarantine_length), y = q0.5, ymin = q0.01, ymax = q0.99, 
-                                    color = factor(quarantine_length)),
-                                size=1)+
-                xlab("Quarantine length (days)")+
-                ylab( switch(input$metric,
-                             "days" = "Days at risk per infected traveler",
-                             "person-days" = "Person-days at risk\nper 10,000 travelers",
-                             "sec-cases" = "Secondary cases\nper 10,000 travelers"))+
-                scale_color_discrete(name="Quarantine length (days)")+
-                theme_minimal()+
-                theme(legend.position = "none",
-                      text = element_text(size = 18))+
-                scale_y_continuous(limits=c(0,NA))
-        }
-    
+        ggplot(dt_analysis())+
+            geom_pointrange(aes(x = factor(quarantine_length), 
+                                y = q0.5,  ymin = q0.01, ymax = q0.99, 
+                                color= testing, shape=testing), 
+                            position = position_dodge(width = 0.5))+
+            switch(input$metric,
+                   "risk"=scale_y_continuous(labels = label_percent(accuracy=1), breaks = seq(0,1,0.1), minor_breaks = seq(0.05, 0.95, 0.1),
+                                             limits=c(0,1), name = "% community transmission risk reduced"),
+                   "days" = scale_y_continuous(limits=c(0,NA), name = "Days at risk per infected traveler"),
+                   "adj-days" = scale_y_continuous(limits=c(0,NA), name = "Adjusted days at risk per infected traveler"),
+                   "person-days" = scale_y_continuous(limits=c(0,NA), name = "Person-days at risk per 10,000 travelers"),
+                   "sec-cases" = scale_y_continuous(limits=c(0,NA), name = "Secondary cases per 10,000 travelers")
+            )+
+            xlab("Quarantine length (days)")+
+            scale_color_discrete(name = "Testing scenario", labels = test_scenario_labs)+scale_shape(name = "Testing scenario", labels = test_scenario_labs)+
+            theme_bw()+
+            theme(legend.position = "right",
+                  panel.grid.minor = element_line(linetype="dotted"),
+                  text = element_text(size=16))#+
+            #scale_y_continuous(limits=ifelse(input$metric=="risk", c(0,1), c(0,NA)))
     )
+        
+        
+        # ggplot(dt_analysis())+
+        #         geom_pointrange(aes(x = testing, y = q0.5, ymin = q0.01, ymax = q0.99, 
+        #                             color = factor(quarantine_length), group = factor(quarantine_length)),
+        #                         position = position_dodge(width = 0.2), size=1)+
+        #         xlab("")+
+        #         ylab( switch(input$metric,
+        #                      "days" = "Days at risk per infected traveler",
+        #                      "person-days" = "Person-days at risk\nper 10,000 travelers",
+        #                      "sec-cases" = "Secondary cases\nper 10,000 travelers",
+        #                      "risk"=""))+
+        #         scale_color_discrete(name="Quarantine length (days)")+
+        #         scale_x_discrete(labels = c("No test", "Test"))+
+        #         geom_line(aes(x = testing, y = q0.5, group = factor(quarantine_length), 
+        #                       color = factor(quarantine_length)), linetype="dashed",
+        #                   position = position_dodge(width = 0.2))+
+        #         theme_minimal()+
+        #         theme(legend.position = "bottom",
+        #               text = element_text(size = 18))+
+        #         scale_y_continuous(limits=c(0,NA))
+    
     
     #TABLE
     output$sim_data <- renderTable(
@@ -314,19 +343,8 @@ server <- function(input, output, session) {
     
 
     
-    # observe({ ## Hide sensitivity options if testing not selected
-    #     if (input$include_test == FALSE) {
-    #         shinyjs::hide("sn_sympt", anim = TRUE)
-    #         shinyjs::hide("sn_asympt", anim = TRUE)
-    #         shinyjs::hide("sn_presympt", anim = TRUE)
-    #     } else {
-    #         shinyjs::show("sn_sympt", anim = TRUE)
-    #         shinyjs::show("sn_asympt", anim = TRUE)
-    #         shinyjs::show("sn_presympt", anim = TRUE)
-    #     }
-    # })
     observe({ ## Hide the prev and secondary cases if outcome doesn't require them
-        if (input$metric == "days") {
+        if (input$metric %in% c("days", "adj-days", "risk")) {
             shinyjs::disable("prev")
             shinyjs::disable("sec_cases_per_day")
         } else if (input$metric == "person-days"){
@@ -354,6 +372,10 @@ server <- function(input, output, session) {
             dur_presympt_mean_ub = 2.8,
             dur_presympt_var_lb = 4.0,
             dur_presympt_var_ub = 6.0,
+            dur_presympt_truncmin_lb = .64,
+            dur_presympt_truncmin_ub = .96,
+            dur_presympt_truncmax_lb = 2.4,
+            dur_presympt_truncmax_ub = 3.6,
             dur_sympt_mean_lb = 2.6,
             dur_sympt_mean_ub = 3.9,
             dur_sympt_var_lb = 3.0,
@@ -363,10 +385,14 @@ server <- function(input, output, session) {
             dur_asympt_var_lb = 4.0,
             dur_asympt_var_ub = 6.0,
             n_iters = as.numeric(input$n_iters),
-            dur_quarantine = as.numeric(input$dur_quarantine),
+            dur_quarantine_alone = as.numeric(input$dur_quarantine_alone),
+            dur_quarantine_endtest = as.numeric(input$dur_quarantine_endtest),
+            dur_quarantine_arrivetest = as.numeric(input$dur_quarantine_arrivetest),
+            dur_quarantine_pretest = as.numeric(input$dur_quarantine_pretest),
             seed = input$RNseed,
             infection_timing = input$infection_timing,
-            test_on_arrival = input$test_on_arrival
+            test_on_arrival = input$test_on_arrival,
+            rr_asympt = input$rr_asympt
         )
         #Run simulation
         Values$dt_raw <<- run_sim(sim_params, dt_incubation_dists_lnorm, progress = TRUE)
@@ -377,7 +403,10 @@ server <- function(input, output, session) {
         reset("prev")
         reset("sec_cases_per_day")
         reset("Options")
-        reset("dur_quarantine")
+        reset("dur_quarantine_alone")
+        reset("dur_quarantine_endtest")
+        reset("dur_quarantine_arrivetest")
+        reset("dur_quarantine_pretest")
         reset("RNseed")
         reset("sn_presympt")
         reset("sn_sympt")
@@ -389,14 +418,13 @@ server <- function(input, output, session) {
         reset("prob_isolate_both")
         reset("infection_timing")
         reset("test_on_arrival")
+        reset("rr_asympt")
         
         Values$dt_raw <- fread("dt_raw.csv")
         
         dt_analysis()
         
     })
-    
-    
 }
 
 # Run the application 
