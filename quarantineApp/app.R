@@ -18,6 +18,7 @@ p_load(shinyjs)
 p_load(ggplot2)
 p_load(data.table)
 p_load(truncdist)
+p_load(scales)
 source("quarantine-functions.R")
 
 
