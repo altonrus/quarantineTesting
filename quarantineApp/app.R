@@ -373,10 +373,7 @@ server <- function(input, output, session) {
             dur_presympt_mean_ub = 2.8,
             dur_presympt_var_lb = 4.0,
             dur_presympt_var_ub = 6.0,
-            dur_presympt_truncmin_lb = .64,
-            dur_presympt_truncmin_ub = .96,
-            dur_presympt_truncmax_lb = 2.4,
-            dur_presympt_truncmax_ub = 3.6,
+            dur_presympt_shift = 0.5,
             dur_sympt_mean_lb = 2.6,
             dur_sympt_mean_ub = 3.9,
             dur_sympt_var_lb = 3.0,
@@ -385,6 +382,7 @@ server <- function(input, output, session) {
             dur_asympt_mean_ub = 6.0,
             dur_asympt_var_lb = 4.0,
             dur_asympt_var_ub = 6.0,
+            dur_latent_min = 0.5,
             n_iters = as.numeric(input$n_iters),
             dur_quarantine_alone = as.numeric(input$dur_quarantine_alone),
             dur_quarantine_endtest = as.numeric(input$dur_quarantine_endtest),
@@ -392,11 +390,14 @@ server <- function(input, output, session) {
             dur_quarantine_pretest = as.numeric(input$dur_quarantine_pretest),
             seed = input$RNseed,
             infection_timing = input$infection_timing,
-            test_on_arrival = input$test_on_arrival,
             rr_asympt = input$rr_asympt
         )
+        
+        #temp
+        #print(lapply(sim_params, typeof))
+        print(sim_params)
         #Run simulation
-        Values$dt_raw <<- run_sim(sim_params, dt_incubation_dists_lnorm, progress = TRUE)
+        Values$dt_raw <- run_sim(sim_params, dt_incubation_dists_lnorm, progress = TRUE)
         })
     
     #RESET
@@ -418,7 +419,6 @@ server <- function(input, output, session) {
         reset("prob_isolate_test")
         reset("prob_isolate_both")
         reset("infection_timing")
-        reset("test_on_arrival")
         reset("rr_asympt")
         
         Values$dt_raw <- fread("dt_raw.csv")
