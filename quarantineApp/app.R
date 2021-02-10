@@ -240,21 +240,29 @@ ui <- tagList(
                           infections, and the incubation period for both infection types",
                           br(),
                           br(),
-                          "Users can toggle between three metrics and choose whether to display policies with testing 
-                          directly on the main tab without re-running the simulation. The metric \"Days at-risk per 
+                          "Users can toggle between five metrics. The metric \"Days at-risk per 
                           infected traveler\" refers to the average time an infected traveler would be at risk of 
                           infecting members of the community because they are infectious and not in quarantine or 
-                          isolation. This metric requires only the parameters from the simulation. The outcome 
-                          \"Person-days at risk per 10,000 travelers\" has both infected and uninfected travelers 
+                          isolation. The metric \"Adjusted days at-risk per infected travelers\" multiplies the 
+                          infectious days in the community for those with asymptomatic infections by the relative 
+                          transmission risk for asymptomatic infections, which is less than 1 in the base case. 
+                          This reflects the belief that symptomatic infections have a higher community transmission risk. 
+                          The primary metric \"Percent risk reduced\" is calculated 
+                          by comparing the adjusted days at-risk for each policy to that of a 0-day quarantine
+                          without testing policy.
+                          While these first 3 metrics require only the parameters from the simulation, two others 
+                          require additional parameters. The outcome \"Person-days at risk per 10,000 travelers\" 
+                          has both infected and uninfected travelers 
                           in the denominator. For this outcome, the user must indicate an estimated or assumed 
                           prevalence of active infection among travelers. The outcome \"Secondary cases\" estimates how
                           many community members you would expect to be infected by travelers. Calculating this outcome 
-                          requires an estimate of the rate of econdary infections per person-day that an traveler is infectious and 
+                          requires an estimate of the rate of secondary infections per person-day that an traveler is infectious and 
                           at-risk in the community.",
                           br(),
                           
                           h1("About the authors"),
-                          "This tool was created by Alton Russell, PhD candidate at Stanford University and visitor
+                          "This tool was created by Alton Russell, postdoctoral research fellow at the Mass General
+                          Hospital Institute for Technology Assessment and Harvard Medical School and visitor
                           at  McGill Clinical & Health Informatics (MCHI), in collaboration
                           with David Buckeridge, Professor of Epidemiology and Biostatistics at McGill University
                           and director of the surveillance lab at MCHI.",
