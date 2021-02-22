@@ -14,9 +14,7 @@ header-includes:
 - \usepackage{amsmath}
 ---
 
-
 \newcommand{\1}{\textbf{1}}
-
 
 <br>
 
@@ -26,11 +24,9 @@ W. Alton Russell^1^, David L. Buckeridge^2^
 
 ^1^MGH Institute for Technology Assessment, Harvard Medical School, Boston, MS, USA
 
-^2^School of Population and Global Health, McGill University, Montreal, QC, Canada 
-
+^2^School of Population and Global Health, McGill University, Montreal, QC, Canada
 
 <br>
-
 
 **CORRESPONDING AUTHOR**
 
@@ -46,14 +42,25 @@ Boston, MA 02114, United States
 
 +1 438-408-7290 (cell)
 
-warussell@mgh.harvard.edu
+[warussell\@mgh.harvard.edu](mailto:warussell@mgh.harvard.edu){.email}
 
 <br>
 
-Brief report, 697/700 words
+Brief report, 1039/1200 words
 
-#####
+##### 
 
+# Abstract
+
+**Objective:** To assess the efficacy of policies designed to reduce the risk of in-country transmission of SARS-CoV-2 from arriving travelers.
+
+**Method:** We developed a simulation model and compared mandatory quarantine, testing, and combined quarantine and testing. We assessed the sensitivity of policy effectiveness to the timing of testing, compliance with quarantine and isolation, and other factors.
+
+**Results:** In the base scenario, a 2-day quarantine reduced more risk than testing alone. The effectiveness of a 5-day quarantine requirement with perfect compliance was similar to a 14-day quarantine with moderate compliance. Testing 72h before arrival reduced less than 10% of in-country transmission risk across all scenarios. The addition of testing to quarantine added value for shorter quarantine lengths, when testing compliance was enforced, and when testing was performed near the end of quarantine.
+
+**Conclusions:** Quarantine is more effective at preventing SARS-CoV-2 transmission from arriving travelers than testing alone, but testing combined with quarantine can add value if longer quarantine requirements are infeasible. Enforcing compliance with quarantine and isolation is critical. Requiring a negative test up to 72h before arrival, the current US policy, may have limited effectiveness.
+
+##### 
 
 ```{r setup, include=FALSE}
 library(ggplot2)
@@ -131,7 +138,6 @@ params <- list(
 incubation_dist_fit_lnorm <- readRDS("../incubation_dists/ncov_inc_fit_boot.rds")
 dt_incubation_dists_lnorm <- data.table(incubation_dist_fit_lnorm@samples)
 ```
-
 
 ```{r run_sims, include=FALSE, eval=FALSE}
 
@@ -334,7 +340,6 @@ fwrite(dt_scenarios, file = "../scenarios.csv")
 # fwrite(dt_test_scenarios, file = "../test_scenarios.csv")
 
 ```
-
 
 ```{r gen_figs, include = FALSE, eval=FALSE}
 
@@ -584,12 +589,7 @@ ggsave("./figs/test_sensitivity_2outcomes.png", p_2outcomes,
 
 ```
 
-
-
-
 ```{r table_scenarios, include = FALSE}
-
-
 
 dt_perc_risk_reduced <- factorize_dt(dcast(dt_scenarios,  quarantine_length+testing+scenario ~ quantile, value.var = "perc_risk_reduced"))
 dt_d_tot <- factorize_dt(dcast(dt_scenarios,  quarantine_length+testing+scenario ~ quantile, value.var = "d_tot"))
@@ -605,7 +605,27 @@ dt_table[ , scenario := factor(scenario, levels = c("Base scenario", "Perfect co
                                                     "70% asymptomatic",  "40% asymptomatic", "10% asymptomatic", "All symptomatic", 
                                                     "100% Sn when infectious", "No symptoms before arrival", "Traveling with symptoms", 
                                                     "Infected on arrival")) ]
+
+
+scenario_labs <-data.table(
+  scenario = c("Base scenario", "Perfect compliance", "Low compliance", "All asymptomatic", 
+                                                    "70% asymptomatic", "10% asymptomatic", "All symptomatic", 
+                                                    "100% Sn when infectious", "No symptoms before arrival", "Traveling with symptoms", 
+                                                    "Infected on arrival"),
+  scenario_lab = c("Base scenario", 
+                   "Perfect compliance (100% compliance for quarantine and isolation)", 
+                   "Low compliance (50% for quarantine, with symptoms, or with a positive test; 70% for both symptoms and a positive test)", 
+                   "All infections are asymptomatic", "70% of infections are asymptomatic",  
+                   "10% of infections are asymptomatic", 
+                   "All infections are symptomatic", 
+                   "100% test sensitivity during infectious disease phases (pre-infectious infections not detectable)", 
+                   "Travelers have not developed symptoms before arriving", 
+                   "Travelers are equally likely to be in any disease phase (including symptomatic)",
+                   "Infected at time of arrival")
+)
 #dt_table[ , testing := ifelse(testing == "On arrival unenforced", "On arrival (default)", testing)]
+
+dt_table <- dt_table[scenario_labs, on="scenario"]
 
 
 dt_table[ , print_txt := paste0(
@@ -636,7 +656,7 @@ dt_table[ , quarantine_length := factor(paste0(quarantine_length, " days"),
                                        "7 days",
                                        "14 days")
                             )]
-dt_table[ , Scenario := scenario]
+dt_table[ , Scenario := scenario_lab]
 levels(dt_table$testing)[levels(dt_table$testing)=="On arrival unenforced" ] <- "On arrival UE"
 dt_table[ , `Test policy` := testing]
 
@@ -672,7 +692,7 @@ t.days_at_risk<-bg(t.days_at_risk, i=(1:11)*6-5, bg = "#DDDDDD")
 t.days_at_risk<-bg(t.days_at_risk, bg = "#EAEAEA", part="header")
 t.days_at_risk<-padding(t.days_at_risk, padding = 2,  part = "all")
 
-t.adj_days_at_risk <- as_flextable(as_grouped_data(dt_table_wide[outcome=="Days with community transmission risk", -1], groups="Scenario"))
+t.adj_days_at_risk <- as_flextable(as_grouped_data(dt_table_wide[outcome=="Adjusted days with community transmission risk", -1], groups="Scenario"))
 t.adj_days_at_risk <- compose(t.adj_days_at_risk, i = ~ !is.na(Scenario),
               value = as_paragraph(Scenario))
 t.adj_days_at_risk <- width(t.adj_days_at_risk, j=2:6, 1.1)
@@ -686,46 +706,40 @@ t.adj_days_at_risk<-bg(t.adj_days_at_risk, bg = "#EAEAEA", part="header")
 t.adj_days_at_risk<-padding(t.adj_days_at_risk, padding = 2,  part = "all")
 ```
 
+# Introduction
 
+> Many countries have implemented policies to reduce the risk of arriving travelers introducing new SARS-CoV-2 transmission chains, particularly for new genetic variants of the virus. Many factors that may influence the relative effectiveness of these policies, including quarantine compliance and the timing of infection relative to arrival, have not been assessed. Additionally, the effectiveness of requiring a negative SARS-CoV-2 test up to 72-hours before arrival, recently implemented for international travelers arriving to the United States, is unknown. We developed a simulation model to estimate the effectiveness of mandatory quarantine, SARS-CoV-2 testing, and combined quarantine and testing for arriving travelers and analyzed the influence of many factors. We also developed a flexible webtool for evaluating policies in context-specific scenarios.
 
+# Methods
 
-# Background
+> We simulated the infection phases for travelers with asymptomatic infections ('pre-infectious' and 'infectious') and with symptomatic infections ('pre-infectious,' 'pre-symptomatic-infectious,' and 'symptomatic-infectious'). For each traveler, we calculated the number of days at risk of community transmission (i.e., infectious and not in quarantine or isolation) under each policy. We calculated the 'adjusted' days at-risk of community transmission by applying a weight to reflect a lower transmission risk for travelers with asymptomatic infections [@Shi2020]. We calculated the percent risk reduced by each policy as compared to a 'no intervention' scenario. These metrics were chosen because they are independent of the prevalence of SARS-CoV-2 infection. We also developed a webtool that allows users to calculate context-specific outcomes based on local data or assumptions (<https://shiny.mchi.mcgill.ca/arussel/quarantineTesting/>). For all metrics, we reported the median and a 98% credible interval (CrI) that reflects uncertainty in the distribution of infection phase durations.
+>
+> We simulated mandatory quarantine policies of 0 -- 14 days and four testing policies: testing 72h before arrival, testing on arrival (with and without enforced isolation following a positive test), and testing 24h before quarantine end. In the '24h before quarantine end' scenario, travelers who did not comply with quarantine were not tested. Travelers who tested positive in the '72h before arrival' and 'on arrival with enforcement' scenarios were assumed to never enter the community. In the base scenario, we assumed 40% of infections were asymptomatic, 80% of travelers would comply with quarantine, 80% would isolate when symptomatic, 90% would isolate after testing positive without symptoms, and 100% would isolate after testing positive if symptomatic. Isolation compliance applied to individuals who were noncompliant with quarantine and to individuals who developed symptoms or tested positive during or after quarantine. The base case assumed a test sensitivity of 70% for symptomatic infections and 60% for asymptomatic infections during infectious phases. We assumed pre-infectious infections were undetectable [@Bisoffi2020]. The base scenario assumed symptom onset did not occur more than 24h before arrival, but the timing of infection relative to arrival was otherwise random. We assessed 3 additional scenarios regarding the timing of infection relative to arrival and performed extensive scenario analysis (Supplemental Figures S3 -- S6 and Tables S1 -- S3). Our webtool allows users to customize most parameters based on context-specific data or assumptions. All data and code are public [@Russell2020a].
 
+# Results
 
-> Many countries have developed policies to reduce the risk of arriving travelers introducing new SARS-CoV-2 transmission chains, particularly for new genetic variants of the virus. Many factors influence the relative effectiveness of policies, and their relative influence has not been described.
-
-# Objectives
-
-> To estimate the effectiveness of mandatory quarantine, SARS-CoV-2 testing, and combined quarantine and testing for arriving travelers at different levels of compliance. To develop a webtool for evaluating policies in user-defined scenarios.
-
-# Methods and findings
-
-> We developed a mathematical model and simulated mandatory quarantine policies of 0--14 days and four testing policies: testing 72h before arrival, testing on arrival (with and without enforced isolation following a positive test), and testing 24h before quarantine end. In the '24h before quarantine end' scenario, travelers who did not comply with quarantine were not tested, and travelers who tested positive in the '72h before arrival' and 'on arrival with enforcement' scenarios never entered the community. The durations of infection phases were sampled from distributions (supplemental methods; Supplemental Figure S1) [@Lauer2020; @Moghadas2020]. 40% of infected travelers had asymptomatic infections and experienced 'pre-infectious' and 'asymptomatic-infectious' phases; 60% had symptomatic infections and experienced 'pre-infectious', 'pre-symptomatic-infectious', and 'symptomatic-infectious' phases. In the base scenario, we assumed 80% of travelers would comply with quarantine, 80% would isolate when symptomatic, 90% would isolate after testing positive, and 100% would isolate after testing positive if symptomatic. We assumed a test sensitivity of 70% for symptomatic infections and 60% for asymptomatic infections during infectious phases, and we assumed pre-infectious infections were undetectable [@Bisoffi2020]. The base scenario assumed symptom onset did not occur more than 24h before arrival; otherwise, the timing of infection relative to arrival was random. For each policy, we estimated the median and 98% credible interval (CrI) of the percent reduction in community transmission risk assuming asymptomatic infections were 49% as transmissible as symptomatic infections [@Shi2020]. The supplement contains results for several scenario analyses (Supplemental Figures S2 – S5 and Tables S1 – S3), and users can modify most parametrs to develop custom scenarios using our webtool (https://shiny.mchi.mcgill.ca/arussel/quarantineTesting/). All data and code are public [@Russell2020a]. 
-
-
-> We estimated that a 14-day quarantine prevented `r dt_table[Scenario=="Perfect compliance" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", percent(q0.5, accuracy=0.1)]` (CrI `r dt_table[Scenario=="Perfect compliance" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", percent(q0.01, accuracy=0.1)]` -- `r dt_table[Scenario=="Perfect compliance" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", percent(q0.99, accuracy=0.1)]`) of community transmission risk with perfect compliance, but that dropped to `r dt_table[Scenario=="Base scenario" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", print_txt]` in the base scenario and `r dt_table[Scenario=="Low compliance" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", print_txt]` in a low compliance scenario (Figure). In the base scenario, a 7-day quarantine requirement reduced risk by `r dt_table[Scenario=="Base scenario" & quarantine_length=="7 days" & testing=="None" & outcome=="Percent risk reduced", print_txt]` and a 5-day quarantine policy reduced risk by `r dt_table[Scenario=="Base scenario" & quarantine_length=="5 days" & testing=="None" & outcome=="Percent risk reduced", print_txt]`. The addition of testing generally increased quarantine effectiveness. With perfect compliance, adding a test 24h before quarantine end was most effective, but testing on arrival added more value when compliance was low. Regardless of compliance, the added value of testing declined for longer quarantine durations. With no quarantine, testing on arrival with enforced isolation was most effective, reducing `r dt_table[Scenario=="Base scenario" & quarantine_length=="0 days" & testing=="On arrival enforced" & outcome=="Percent risk reduced", print_txt]` of community transmission risk. Testing 72h before arrival reduced risk by only `r dt_table[Scenario=="Base scenario" & quarantine_length=="0 days" & testing=="3 days prior" & outcome=="Percent risk reduced", print_txt]` in the base scenario and by no more than 10% in any of the scenario analyses.
+> We estimated that a 14-day quarantine prevented `r dt_table[scenario=="Perfect compliance" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", percent(q0.5, accuracy=0.1)]` (CrI `r dt_table[scenario=="Perfect compliance" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", percent(q0.01, accuracy=0.1)]` -- `r dt_table[scenario=="Perfect compliance" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", percent(q0.99, accuracy=0.1)]`) of community transmission risk with perfect compliance, but that dropped to `r dt_table[scenario=="Base scenario" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", print_txt]` in the base scenario and `r dt_table[scenario=="Low compliance" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", print_txt]` in a low compliance scenario (Figure). In the base scenario, a 7-day quarantine requirement reduced risk by `r dt_table[scenario=="Base scenario" & quarantine_length=="7 days" & testing=="None" & outcome=="Percent risk reduced", print_txt]` and a 5-day quarantine policy reduced risk by `r dt_table[scenario=="Base scenario" & quarantine_length=="5 days" & testing=="None" & outcome=="Percent risk reduced", print_txt]`. The addition of testing generally increased quarantine effectiveness. With perfect compliance, adding a test 24h before quarantine end was most effective, but testing on arrival added more value when compliance was low. Regardless of compliance, the added value of testing declined for longer quarantine durations. With no quarantine, testing on arrival with enforced isolation was most effective, reducing `r dt_table[scenario=="Base scenario" & quarantine_length=="0 days" & testing=="On arrival enforced" & outcome=="Percent risk reduced", print_txt]` of community transmission risk. Testing 72h before arrival reduced risk by only `r dt_table[scenario=="Base scenario" & quarantine_length=="0 days" & testing=="3 days prior" & outcome=="Percent risk reduced", print_txt]` in the base scenario and by no more than 10% in any of the scenario analyses. Across all infection timing scenarios, the median proportion of infections that were not yet detectable was over 75% 3 days before arrival and over 39% on arrival, limiting the effectiveness of testing without quarantine (Figure S7).
 
 # Discussion
 
-> To reduce risk of COVID-19 transmission from arriving travelers, quarantine is more effective than testing alone. Compliance with quarantine and isolation was the most important factor we examined. For example, 5-day quarantine with perfect compliance (`r dt_table[Scenario=="Perfect compliance" & quarantine_length=="5 days" & testing=="None" & outcome=="Percent risk reduced", percent(q0.5, accuracy=0.1)]`) had a similar median risk reduction to 14-day quarantine in the base case (`r dt_table[Scenario=="Base scenario" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", percent(q0.5, accuracy=0.1)]`). Pre-departure testing did not substantially reduce community transmission risk because most infections were not yet detectable before arriving (Supplemental Figure S6). However, we did not consider in-transit transmission to other travelers, which pre-departure testing may avert. We also did not consider household transmission during quarantine, a significant risk when arriving travelers cohabitate with community members while in quarantine. 
+> To reduce risk of COVID-19 transmission from arriving travelers, quarantine is more effective than testing alone. Compliance with quarantine and isolation were the most important factors we examined. For example, 5-day quarantine with perfect compliance (`r dt_table[scenario=="Perfect compliance" & quarantine_length=="5 days" & testing=="None" & outcome=="Percent risk reduced", percent(q0.5, accuracy=0.1)]`) had a similar median risk reduction to 14-day quarantine in the base case (`r dt_table[scenario=="Base scenario" & quarantine_length=="14 days" & testing=="None" & outcome=="Percent risk reduced", percent(q0.5, accuracy=0.1)]`). Other model-based analyses recently assessed quarantine and testing policies for arriving travelers and produced similar findings about the ineffectiveness of testing alone [@Wells2021; @Ashcroft2020]. Our analysis makes three further contributions. First, our extensive scenario analysis evaluated sensitivity to many unexplored parameters that may be uncertain or context-specific, and our webtool enables policymakers to construct custom scenarios based on local conditions. Second, we analyzed compliance in far greater detail, separately modeling compliance with quarantine and self-isolation following symptom onset or testing positive. Another recent simulation-based analysis found that quarantine and isolation compliance play a similarly critical role in the effectiveness of contact tracing policies [@Quilty2021]. Third, we assessed pre-departure testing to reflect the current US policy of requiring a negative test up to 72 hours before arrival. In all scenarios, most infected travelers were not yet detectable 72h before arriving, limiting the effectiveness of pre-departure testing. However, we did not consider in-transit transmission to other travelers, which pre-departure testing may avert. We also did not consider household transmission during quarantine, a significant risk regardless of quarantine length or testing requirements if arriving travelers cohabitate with community members during quarantine.
 
-> This analysis estimates the relative effectiveness of policies to reduce the risk of arriving travelers introducing new SARS-CoV-2 transmission chains. The optimal policy will depend on characteristics of arriving travelers (e.g., rate of infection, likelihood of importing a new variant) and conditions in the community (e.g., immunization rate, likelihood that imported cases will necessitate economically damaging lockdowns, health system capacity and utilization, and the economic impact of travel restrictions). The webtool we developed allows exploration of the influence of these characteristics.
+> By estimating the relative effectiveness of policies to reduce the risk of arriving travelers introducing new SARS-CoV-2 transmission chains, we found that pre-departure testing is minimally effective and compliance with both quarantine and isolation is critical. The optimal policy for a country will depend on characteristics of arriving travelers (e.g., rate of infection, likelihood of importing a new variant) and conditions in the community (e.g., immunization rate, likelihood that imported cases will necessitate economically damaging lockdowns, health system capacity and utilization, and the economic impact of travel restrictions). The webtool we developed allows exploration of the influence of these characteristics in light of local conditions.
 
-#####
+##### 
 
 # References
 
-<div id="refs"></div>
+::: {#refs}
+:::
 
-#####
+##### 
 
 ![**Figure.** Estimated percent community transmission risk reduction of quarantine and testing policies in a perfect compliance scenario, the base scenario, and a low compliance scenario. The base scenario assumes 80% quarantine compliance; 80% isolation compliance following symptom onset; 90% isolation compliance following a positive test result; and 100% isolation compliance with symptoms and a positive test. The low compliance scenario assumes 50% quarantine compliance; 50% isolation compliance following symptom onset or a positive test result; and 70% isolation compliance following symptom onset and a positive test.](figs/perc_risk_reduced_compliance.png)
 
+##### 
 
-
-#####
 \setcounter{page}{0}
-
 
 # Effectiveness of quarantine and testing to prevent COVID-19 transmission from arriving travelers
 
@@ -741,19 +755,19 @@ W. Alton Russell, MS, David L. Buckeridge, MD, PhD, FRCPC
 
 > This report focuses on the percent community risk reduced by each policy, but the model calculates other outcomes as well:
 
-* **Days at risk of community transmission per infected traveler:** the duration (in days) under each policy for which an infected traveler is in the community (i.e., not in quarantine or isolation) and also in an infectious phase (pre-symptomatic infectious, symptomatic infectious, or asymptomatic infectious)
-* **Adjusted days at risk of community transmission per infected traveler:** calculated as above except that asymptomatic infection days in the community are multiplied by the relative risk of transmission for asymptomatic as compared to symptomatic infections.
-* **Percent community transmission risk reduced:** The percent decrease in the expectation of the adjusted days at risk of community transmission for a policy as compared to a policy of no quarantine and no testing.
+-   **Days at risk of community transmission per infected traveler:** the duration (in days) under each policy for which an infected traveler is in the community (i.e., not in quarantine or isolation) and also in an infectious phase (pre-symptomatic infectious, symptomatic infectious, or asymptomatic infectious)
+-   **Adjusted days at risk of community transmission per infected traveler:** calculated as above except that asymptomatic infection days in the community are multiplied by the relative risk of transmission for asymptomatic as compared to symptomatic infections.
+-   **Percent community transmission risk reduced:** The percent decrease in the expectation of the adjusted days at risk of community transmission for a policy as compared to a policy of no quarantine and no testing.
 
 > The above outcomes are all independent of the prevalence of infection among travelers and therefore more generalizable. Additional outcomes can be derived for specific scenarios using additional parameters:
 
-* **Days at risk per 10,000 arriving travelers:** Estimated by multiplying the days at risk per infected traveler by the prevalence of active infections among travelers, which report per 10,000 travelers in the webtool.
-* **Adjusted Days at risk per 10,000 arriving travelers:** Estimated by multiplying the adjusted days at risk per infected traveler by the prevalence of active infections among travelers, which report per 10,000 travelers in the webtool.
-* **Number of secondary cases per 10,000 arriving travelers:** Estimated by multiplying the adjusted days at risk per 10,000 travelers by an estimate for the average number of secondary infections per person-day at risk for a symptomatic infection.
+-   **Days at risk per 10,000 arriving travelers:** Estimated by multiplying the days at risk per infected traveler by the prevalence of active infections among travelers, which report per 10,000 travelers in the webtool.
+-   **Adjusted Days at risk per 10,000 arriving travelers:** Estimated by multiplying the adjusted days at risk per infected traveler by the prevalence of active infections among travelers, which report per 10,000 travelers in the webtool.
+-   **Number of secondary cases per 10,000 arriving travelers:** Estimated by multiplying the adjusted days at risk per 10,000 travelers by an estimate for the average number of secondary infections per person-day at risk for a symptomatic infection.
 
-One can derive an estimate of the average number of secondary infections per person-day at risk from an assumed $R_t$, the effective reproductive number for arriving travelers. If travelers' risk behavior differs from that of local residents, travelers' $R_t$ may also differ. For instance, in locations allowing indoor dining and tourist activities, travelers may spend considerably more time in indoor public spaces with high transmission risk and therefore may have a higher $R_t$ than the local population. By contrast, it is possible that travelers will have a lower $R_t$ if travelers exhibit fewer high-risk behaviors as compared to the general populaiton (e.g., by disproportionally avoiding public indoor spaces). Our model assumes an average of 5 infectious days per symptomatic individual (.7 in presymptomatic infectious days and 3.2 symptomatic infectious days for symptomatic individuals; 5 asymptomatic-infectious days for asymptomatic individuals). Thus, one simple estimate for the number of secondary infections per person-day at risk can then be estimated by dividing the estimated $R_t$ by 5. To factor in the relavive risk of transmission for asymptomatic vs. symptomatic infections one could instead factor in the percent asymptomatic infections and the relative transmission risk for asymptomatic vs. symptomatic infectious days.
+One can derive an estimate of the average number of secondary infections per person-day at risk from an assumed $R_t$, the effective reproductive number for arriving travelers. If travelers' risk behavior differs from that of local residents, travelers' $R_t$ may also differ. For instance, in locations allowing indoor dining and tourist activities, travelers may spend considerably more time in indoor public spaces with high transmission risk and therefore may have a higher $R_t$ than the local population. By contrast, it is possible that travelers will have a lower $R_t$ if travelers exhibit fewer high-risk behaviors as compared to the general population (e.g., by disproportionately avoiding public indoor spaces). Our model assumes an average of 5 infectious days per symptomatic individual (.7 in pre-symptomatic infectious days and 3.2 symptomatic infectious days for symptomatic individuals; 5 asymptomatic-infectious days for asymptomatic individuals). Thus, one simple estimate for the number of secondary infections per person-day at risk can then be estimated by dividing the estimated $R_t$ by 5. To factor in the relative risk of transmission for asymptomatic vs. symptomatic infections one could instead factor in the percent asymptomatic infections and the relative transmission risk for asymptomatic vs. symptomatic infectious days.
 
-> These additional outcomes are available in the webtool: https://shiny.mchi.mcgill.ca/arussel/quarantineTesting/
+> These additional outcomes are available in the webtool: <https://shiny.mchi.mcgill.ca/arussel/quarantineTesting/>
 
 <br>
 
@@ -762,18 +776,16 @@ One can derive an estimate of the average number of secondary infections per per
 Researchers in Wanzhou, China, analyzed epidemiologic data for 183 confirmed COVID-19 cases and their close contacts from five generations of transmission, estimating that asymptomatic infections constitute 32.8% of infected persons and cause 19.3% of infections [@Shi2020]. We calculated the relative risk of transmission for asymptomatic as compared to symptomatic infections as follows:
 
 $$
-RR_{\text{asympt vs. sympt}} = \frac{(19.3\%/32.8\%)}{(1-19.3\%)(1-32.8\%)} = 49\%
+RR_{\text{asympt vs. sympt}} = \frac{(19.3\%/32.8\%)}{(1-19.3\%)/(1-32.8\%)} = 49\%
 $$
 
 <br>
-
-
 
 ## Simulation structure
 
 > We simulated the infection phases of travelers with asymptomatic infections (non-infectious phase and asymptomatic-infectious phase) and symptomatic infections (non-infectious phase, pre-symptomatic-infectious phase, and symptomatic-infectious phase). We used code from Lauer 2020 to sample 1,000 bootstrapped lognormal parameters for the incubation time distribution [@Lauer2020], which had a mean of 5.1 days. Following Moghadas 2020, we used gamma distributions for the durations of asymptomatic-infectious, pre-symptomatic-infectious, and symptomatic-infectious phases. However, we introduced uncertainty by varying the distributions' mean and variance uniformly by ±20%, and we sampled 1,000 parameter sets for the duration distributions. The pre-symptomatic-infectious phase had a mean duration of 2.3 days and a variance of 5 days; the symptomatic-infectious phase had a mean duration of 3.2 days and a variance of 3.7 days; and the asymptomatic-infectious phase had a mean duration of 5 days and a variance of 5 days. For the pre-symptomatic-infectious phase, we shifted the gamma distribution by 0.5 days (so the minimum pre-symptomatic-infectious phase duration was 0.5 days) and recalculated shape and scale parameters to match the mean and variance. Figure S1 shows 100 randomly sampled duration distributions.
 
-> For each of 1,000 sets of duration distributions, we simulated 5,000 travelers with asymptomatic infection and 10,000 travelers with symptomatic infection. For the symptomatic infections, we sampled from the incubation time distribution to get the time of symptom onset and subtracted the pre-symptomatic-infectious phase to get the time of infectiousness, but we imposed a lower limit that the time of infectiousness was at least 0.5 days after infection. We also sampled the duration of the symptomatic-infectious phase to determine the time each traveler would be no longer infectious. For each traveler with an asymptomatic infection, we determined the time of infectiousness similarly and sampled a duration of asymptomatic infectiousness to determine the time the traveler would no longer be infectious. For each traveler, we then calculated the days in the community and infectious in the pre-symptomatic-infectious, symptomatic-infectious, and asymptomatic-infectious phases using the expressions in the next section. We then took the expected value for each of the 1,000 distribution samples and reported the median and the 1st and 99th quantiles.
+> For each of 1,000 sets of duration distributions, we simulated 5,000 travelers with asymptomatic infection and 10,000 travelers with symptomatic infection. For the symptomatic infections, we sampled from the incubation time distribution to get the time of symptom onset and subtracted the pre-symptomatic-infectious phase to get the time of infectiousness, but we imposed a lower limit that the time of infectiousness was at least 0.5 days after infection. We also sampled the duration of the symptomatic-infectious phase to determine the time each traveler would be no longer infectious. For each traveler with an asymptomatic infection, we determined the time of infectiousness similarly and sampled a duration of asymptomatic infectiousness to determine the time the traveler would no longer be infectious. For each traveler, we then calculated the days in the community and infectious in the pre-symptomatic-infectious, symptomatic-infectious, and asymptomatic-infectious phases using the expressions in the next section. We then took the expected value for each of the 1,000 distribution samples and reported the median and the 1st and 99th percentiles.
 
 <br>
 
@@ -783,212 +795,124 @@ $$
 
 ### Asymptomatic infections
 
-> We assume travelers with asymptomatic infection comply with quarantine with probability $P_q$. If they do not comply, they will be infectious in the community from the greater of the time they become infectious ($t_i$) and the time they arrive ($u$), and their "infectious days in community" will end when they recover, $t_r$. If they comply with quarantine, their infectious days will begin at the greater of $t_i$ and when quarantine ends, represented by $u+d$. 
+> We assume travelers with asymptomatic infection comply with quarantine with probability $P_q$. If they do not comply, they will be infectious in the community from the greater of the time they become infectious ($t_i$) and the time they arrive ($u$), and their "infectious days in community" will end when they recover, $t_r$. If they comply with quarantine, their infectious days will begin at the greater of $t_i$ and when quarantine ends, represented by $u+d$.
 
 > **Asymptomatic infections with no testing:** the expected number of days at risk of community transmission for asymptomatic individuals with no testing is:
 
-$\begin{align*}
-(1-P_{q})[t_{r} - \max(t_i, u)]^+ + P_{q} [t_r - \max(t_i, u+d)]^+
-\end{align*}$
+$\begin{align*} (1-P_{q})[t_{r} - \max(t_i, u)]^+ + P_{q} [t_r - \max(t_i, u+d)]^+ \end{align*}$
 
 > **Asymptomatic infections with testing 24h before quarantine end:** this scenario assumes those who do not comply with quarantine do not receive testing, and those who comply with quarantine are tested 24h before quarantine ends ($t=u+d-1$). If they are tested before becoming infectious ($u+d-1<t_i$) they will test negative and be at risk of community transmission from the greater of $t_i$ and $d+u$ until $t_r$. If they are tested while infectious, they will only be at risk of community transmission if they test false-negative (probability $1-Sn_A$ where $Sn_A$ is test sensitivity during the asymptomatic-infectious stage) or if they test positive but refuse to quarantine ($Sn_A(1-P_{it})$ where $P_{it}$ is probability of isolation given a positive test and no symptoms). Therefore, the expected number of days at risk of community transmission for asymptomatic individuals with testing 24 hours before end of quarantine is:
 
-$\begin{align*}
-(1-P_{q})&[t_{r} - \max(t_i, u)]^+ + \\
-P_{q}    &\Big(  \1 _{\{u+d-1<t_i\}} [t_r - \max(t_i, d+u)]^+  + \\
-          &\1_{\{u+d - 1 \geq t_i\}} \big((1-Sn_A)+Sn_A (1-P_{it})  \big) [ t_r - (u+d)) ]^+ \Big)
-\end{align*}$
+$\begin{align*} (1-P_{q})&[t_{r} - \max(t_i, u)]^+ + \\ P_{q} &\Big( \textbf{1} _{\{u+d-1<t_i\}} [t_r - \max(t_i, d+u)]^+ + \\ &\textbf{1}_{\{u+d - 1 \geq t_i\}} \big((1-Sn_A)+Sn_A (1-P_{it}) \big) [ t_r - (u+d)) ]^+ \Big) \end{align*}$
 
 > **Asymptomatic infections with testing on arrival without isolation enforcement:** In this scenario, all travelers are tested when they arrive ($t=u$). We assume isolation after testing positive is not strictly enforced; as before, the probability of isolating after a positive test is $P_{it}$. In this testing scenario, the person-days of community risk for a traveler with an asymptomatic infection is:
 
-
-$\begin{align*}
-\1_{ \{ u < t_i \} }    &[ (1-P_{q})[t_{r} - t_i] + P_{q} [t_r - \max(t_i, u+d)]^+ ] + \\
-\1_{ \{ u \geq t_i \} } & [(1-P_{q})((1-Sn_A)+Sn_A(1-P_{it}))[t_{r} - u]^+ + \\
-                        & \quad P_q ((1-Sn_A)+Sn_A(1-P_{it})) [t_r - (u+d)]^+]
-\end{align*}$
+$\begin{align*} \textbf{1}_{ \{ u < t_i \} } &[ (1-P_{q})[t_{r} - t_i] + P_{q} [t_r - \max(t_i, u+d)]^+ ] + \\ \textbf{1}_{ \{ u \geq t_i \} } & [(1-P_{q})((1-Sn_A)+Sn_A(1-P_{it}))[t_{r} - u]^+ + \\ & \quad P_q ((1-Sn_A)+Sn_A(1-P_{it})) [t_r - (u+d)]^+] \end{align*}$
 
 > **Asymptomatic infections with testing on arrival with isolation enforcement:** In this scenario, all travelers are tested when they arrive ($t=u$). We assume those who test positive on arrival are either denied entry or have quarantine strictly enforced. The person-days of community risk for a traveler with an asymptomatic infection is:
 
-
-$\begin{align*}
-\1_{ \{ u < t_i \} }    &[ (1-P_{q})[t_{r} - t_i] + P_{q} [t_r - \max(t_i, u+d)]^+ ] + \\
-\1_{ \{ u \geq t_i \} } & [(1-P_{q})(1-Sn_A)[t_{r} - u]^+ + \\
-                        & \quad P_q (1-Sn_A) [t_r - (u+d)]^+]
-\end{align*}$
+$\begin{align*} \textbf{1}_{ \{ u < t_i \} } &[ (1-P_{q})[t_{r} - t_i] + P_{q} [t_r - \max(t_i, u+d)]^+ ] + \\ \textbf{1}_{ \{ u \geq t_i \} } & [(1-P_{q})(1-Sn_A)[t_{r} - u]^+ + \\ & \quad P_q (1-Sn_A) [t_r - (u+d)]^+] \end{align*}$
 
 > **Asymptomatic infections with testing 72h before arrival**: In this scenario, travelers are tested 3 days before arrival ($t=u-3$). We assume those who test positive will be denied entry.
 
-
-$\begin{align*}
-\1_{ \{ u - 3 < t_i \} }    &[ (1-P_{q})[t_{r} - \max(t_i,u)] + P_{q} [t_r - \max(t_i, u+d)]^+ ] + \\
-\1_{ \{ u - 3\geq t_i \} } & [(1-P_{q})(1-Sn_A)[t_{r} - \max(t_i,u)]^+ + \\
-                        & \quad P_q (1-Sn_A) [t_r - \max(t_i,u+d)]^+]
-\end{align*}$
-
-
+$\begin{align*} \textbf{1}_{ \{ u - 3 < t_i \} } &[ (1-P_{q})[t_{r} - \max(t_i,u)] + P_{q} [t_r - \max(t_i, u+d)]^+ ] + \\ \textbf{1}_{ \{ u - 3\geq t_i \} } & [(1-P_{q})(1-Sn_A)[t_{r} - \max(t_i,u)]^+ + \\ & \quad P_q (1-Sn_A) [t_r - \max(t_i,u+d)]^+] \end{align*}$
 
 ### Symptomatic infections
 
 > For travelers with symptomatic infections, we calculate the days at risk of community transmission separately for the pre-symptomatic and symptomatic infection phases. Days at risk during the pre-symptomatic stage are calculated the same as asymptomatic days except that the endpoint for pre-symptomatic days at risk is the time that symptoms begin ($t_s$) rather than the time of recovery ($t_r$), and we use test sensitivity for detecting an infection in the pre-symptomatic-infectious stage ($Sn_P$). In calculating symptomatic days in the community, we consider that travelers are required to isolate once symptoms develop, and we factor in the probability of compliance with isolation after symptom onset $P_{is}$.
 
-
 > **Symptomatic infections with no testing:** the expected number of days at risk of community transmission while in **pre-symptomatic phase** with no testing is:
 
-$\begin{align*}
-(1-P_{q}) [t_s - \max(t_i, u)]^+ + P_{q} [t_s - \max(t_i,u+d)]^+
-\end{align*}$
+$\begin{align*} (1-P_{q}) [t_s - \max(t_i, u)]^+ + P_{q} [t_s - \max(t_i,u+d)]^+ \end{align*}$
 
 > We assume travelers will isolate while in symptomatic-infectious stage with probability $P_{is}$. Days at risk while symptomatic begin at $t_s$, the time symptoms begin, and end at $t_r$, the time of recovery when individuals are no longer infectious. Therefore, the expected number of days at risk of community transmission while in **symptomatic phase** with no testing is:
 
-$\begin{align*}
-(1-P_{is})\Big( (1-P_{q}) &[t_r - \max(t_s, u)]^+ +\\
-P_{q} &[t_r - \max(t_s,u+d)]^+ \Big)
-\end{align*}$
+$\begin{align*} (1-P_{is})\Big( (1-P_{q}) &[t_r - \max(t_s, u)]^+ +\\ P_{q} &[t_r - \max(t_s,u+d)]^+ \Big) \end{align*}$
 
+> **Symptomatic infections with testing 24h before end of quarantine:** With testing 24h before quarantine end, we assume that the days at risk for those who do not comply with quarantine (probability $(1-P_q)$) is unchanged because they also do not get tested. Those who comply will test negative if they are tested before infectious ($u+d-1<t_i$). With probability $1-P_{is}$ they will not isolate after developing symptoms and will incur days at risk until $t_r$. If tested during pre-symptomatic infectious stage ($t_i\leq u+d-1<t_s$), they will incur days at risk while symptomatic if they test false negative (probability $(1-Sn_P$)) and they do not isolate (probability $(1-P_{is}$) or if they test positive and refuse to isolate ($Sn_P(1-P_{ib})$, where $P_{ib}$ is probability of isolating with both a positive test and symptoms). For those tested while symptomatic, they will incur days at risk if the test is false negative ($1-Sn_S$ where $Sn_S$ is test sensitivity for those in symptomatic-infectious state) or if they test positive and refuse to isolate ($Sn_S(1-P_{ib})$). with testing 24h before the end of quarantine, the expected number of days at risk of community transmission while in **pre-symptomatic phase** is:
 
-> **Symptomatic infections with testing 24h before end of quarantine:** With testing 24h before quarantine end, we assume that the days at risk for those who do not comply with quarantine (probability $(1-P_q)$) is unchanged because they also do not get tested. Those who comply will test negative if they are tested before infectious ($u+d-1<t_i$). With probability $1-P_{is}$ they will not isolate after developing symptoms and will incur days at risk until $t_r$. If tested duirng pre-symptomatic infectious stage ($t_i\leq u+d-1<t_s$), they will incur days at risk while symptomatic  if they test false negative (probability $(1-Sn_P$)) and they do not isolate (probability $(1-P_{is}$) or if they test positive and refuse to isolate ($Sn_P(1-P_{ib})$, where $P_{ib}$ is probabiilty of isolating with both a positive test and symptoms). For those tested while symptomatic, they will incur days at risk if the test is false negative ($1-Sn_S$ where $Sn_S$ is test sensitivity for those in symptomatic-infectious state) or if they test positive and refuse to isolate ($Sn_S(1-P_{ib})$). with testing 24h before the end of quarantine, the expected number of days at risk of community transmission while in **pre-symptomatic phase** is:
-
-
-$\begin{align*}
-(1-P_{q}) &[t_s - \max(t_i, u)]^+ + \\
-P_{q} &\Big[\1_{\{u+d-1 < t_i \}} [t_s - \max(t_i, u+d)]^+  + \\
-      &\1_{\{u+d-1 \geq t_i\}} \big((1-Sn_P)+Sn_P (1-P_{it})\big)[t_s - (u+d)]^+   \Big]
-\end{align*}$
-
+$\begin{align*} (1-P_{q}) &[t_s - \max(t_i, u)]^+ + \\ P_{q} &\Big[\textbf{1}_{\{u+d-1 < t_i \}} [t_s - \max(t_i, u+d)]^+ + \\ &\textbf{1}_{\{u+d-1 \geq t_i\}} \big((1-Sn_P)+Sn_P (1-P_{it})\big)[t_s - (u+d)]^+ \Big] \end{align*}$
 
 > The expected number of days at risk of community transmission while in the **symptomatic-infectious phase** with testing 24 hours before end of quarantine is:
 
-$\begin{align*}
-(1-P_{q})&(1-P_{is}) [t_r - \max(t_s, u))]^+ +\\
-P_{q}  & \Bigg(\1_{\{u+d-1 < t_i \}} [ (1-P_{is})[t_r - \max(t_s, u+d)]^+  ]+ \\
-       &\1_{\{t_i \leq u+d-1 <  t_s\}} [((1-Sn_P)(1-P_{is})  + Sn_P (1-P_{ib})) [t_r - \max(t_s,u+d)]^+] + \\
-       &\1_{\{u+d-1 \geq  t_s\}}[((1-Sn_S)(1-P_{is}) + Sn_S (1- P_{ib})) [t_r - (u+d)]^+] \Bigg)
-\end{align*}$
-
+$\begin{align*} (1-P_{q})&(1-P_{is}) [t_r - \max(t_s, u))]^+ +\\ P_{q} & \Bigg(\textbf{1}_{\{u+d-1 < t_i \}} [ (1-P_{is})[t_r - \max(t_s, u+d)]^+ ]+ \\ &\textbf{1}_{\{t_i \leq u+d-1 < t_s\}} [((1-Sn_P)(1-P_{is}) + Sn_P (1-P_{ib})) [t_r - \max(t_s,u+d)]^+] + \\ &\textbf{1}_{\{u+d-1 \geq t_s\}}[((1-Sn_S)(1-P_{is}) + Sn_S (1- P_{ib})) [t_r - (u+d)]^+] \Bigg) \end{align*}$
 
 > **Symptomatic infections with testing on arrival without isolation enforcement:** the expected number of days at risk of community transmission while in the **pre-symptomatic phase** is:
 
-$\begin{align*}
-\1_{ \{ u < t_i \} }    & [ (1-P_{q})[t_{s} - t_i] + P_{q} [t_s - \max(t_i, u+d)]^+ ] + \\
-\1_{ \{ u \geq t_i \} } & [(1-P_{q})((1-Sn_P)+Sn_P(1-P_{it}))[t_{s} - u]^+ + \\
-                        & \quad P_q ((1-Sn_P)+Sn_P(1-P_{it})) [t_s - (u+d)]^+]
-\end{align*}$
+$\begin{align*} \textbf{1}_{ \{ u < t_i \} } & [ (1-P_{q})[t_{s} - t_i] + P_{q} [t_s - \max(t_i, u+d)]^+ ] + \\ \textbf{1}_{ \{ u \geq t_i \} } & [(1-P_{q})((1-Sn_P)+Sn_P(1-P_{it}))[t_{s} - u]^+ + \\ & \quad P_q ((1-Sn_P)+Sn_P(1-P_{it})) [t_s - (u+d)]^+] \end{align*}$
 
 > The expected number of days at risk of community transmission while in the **symptomatic phase** is:
 
-$\begin{align*}
-\1_{ \{ u < t_i \} }            & [ (1-P_{q})(1-P_{is})[t_{r} - t_s] + P_{q} (1-P_{is}) [t_r - \max(t_s, u+d)]^+ ] + \\
-\1_{ \{ t_i \leq u < t_s \} }   & [ (1-P_{q})((1-Sn_P)(1-P_{is}) + Sn_P(1-P_{ib})) [t_r - t_s] + \\
-                                & \quad P_{q} ((1-Sn_P)(1-P_{is}) + Sn_P(1-P_{ib}))[t_r - \max(u+d, t_s)]^+ ] + \\
-\1_{ \{ u \geq t_s \} }         &[(1-P_q)((1-Sn_S)(1-P_{is}) + Sn_S (1-P_{ib}))[t_r - u]^+ \\
-                                & \quad P_q ((1-Sn_S)(1-P_{is}) + Sn_S (1-P_{ib})) [t_r - (u+d)]^+]
-\end{align*}$
+$\begin{align*} \textbf{1}_{ \{ u < t_i \} } & [ (1-P_{q})(1-P_{is})[t_{r} - t_s] + P_{q} (1-P_{is}) [t_r - \max(t_s, u+d)]^+ ] + \\ \textbf{1}_{ \{ t_i \leq u < t_s \} } & [ (1-P_{q})((1-Sn_P)(1-P_{is}) + Sn_P(1-P_{ib})) [t_r - t_s] + \\ & \quad P_{q} ((1-Sn_P)(1-P_{is}) + Sn_P(1-P_{ib}))[t_r - \max(u+d, t_s)]^+ ] + \\ \textbf{1}_{ \{ u \geq t_s \} } &[(1-P_q)((1-Sn_S)(1-P_{is}) + Sn_S (1-P_{ib}))[t_r - u]^+ \\ & \quad P_q ((1-Sn_S)(1-P_{is}) + Sn_S (1-P_{ib})) [t_r - (u+d)]^+] \end{align*}$
 
 > **Symptomatic infections with testing on arrival with isolation enforcement:** the expected number of days at risk of community transmission while in the **pre-symptomatic phase** is:
 
-$\begin{align*}
-\1_{ \{ u < t_i \} }    & [ (1-P_{q})[t_{s} - t_i] + P_{q} [t_s - \max(t_i, u+d)]^+ ] + \\
-\1_{ \{ u \geq t_i \} } & [(1-P_{q})(1-Sn_P)[t_{s} - u]^+ + P_q (1-Sn_P) [t_s - (u+d)]^+]
-\end{align*}$
+$\begin{align*} \textbf{1}_{ \{ u < t_i \} } & [ (1-P_{q})[t_{s} - t_i] + P_{q} [t_s - \max(t_i, u+d)]^+ ] + \\ \textbf{1}_{ \{ u \geq t_i \} } & [(1-P_{q})(1-Sn_P)[t_{s} - u]^+ + P_q (1-Sn_P) [t_s - (u+d)]^+] \end{align*}$
 
 > The expected number of days at risk of community transmission while in the **symptomatic phase** is:
 
-$\begin{align*}
-\1_{ \{ u < t_i \} }            & [ (1-P_{q})(1-P_{is})[t_{r} - t_s] + P_{q} (1-P_{is}) [t_r - \max(t_s, u+d)]^+ ] + \\
-\1_{ \{ t_i \leq u < t_s \} }   & [ (1-P_{q})((1-Sn_P)(1-P_{is})) [t_r - t_s] + \\
-                                & \quad P_{q} ((1-Sn_P)(1-P_{is}))[t_r - \max(u+d, t_s)]^+ ] + \\
-\1_{ \{ u \geq t_s \} }         &[(1-P_q)((1-Sn_S)(1-P_{is}))[t_r - u]^+ \\
-                                & \quad P_q ((1-Sn_S)(1-P_{is})) [t_r - (u+d)]^+]
-\end{align*}$
+$\begin{align*} \textbf{1}_{ \{ u < t_i \} } & [ (1-P_{q})(1-P_{is})[t_{r} - t_s] + P_{q} (1-P_{is}) [t_r - \max(t_s, u+d)]^+ ] + \\ \textbf{1}_{ \{ t_i \leq u < t_s \} } & [ (1-P_{q})((1-Sn_P)(1-P_{is})) [t_r - t_s] + \\ & \quad P_{q} ((1-Sn_P)(1-P_{is}))[t_r - \max(u+d, t_s)]^+ ] + \\ \textbf{1}_{ \{ u \geq t_s \} } &[(1-P_q)((1-Sn_S)(1-P_{is}))[t_r - u]^+ \\ & \quad P_q ((1-Sn_S)(1-P_{is})) [t_r - (u+d)]^+] \end{align*}$
 
 > **Symptomatic infections with testing 72h before arrival**: the expected number of days at risk of community transmission while in the **pre-symptomatic phase** is:
 
-$\begin{align*}
-\1_{ \{ u - 3 < t_i \} }    & [ (1-P_{q})[t_{s} - \max(t_i, u)] + P_{q} [t_s - \max(t_i, u+d)]^+ ] + \\
-\1_{ \{ u-3 \geq t_i \} } & [(1-P_{q})(1-Sn_P)[t_{s} - \max(t_i,u)]^+ +\\
-                        & \quad P_q (1-Sn_P) [t_s - \max(t_i, u+d)]^+]
-\end{align*}$
-
+$\begin{align*} \textbf{1}_{ \{ u - 3 < t_i \} } & [ (1-P_{q})[t_{s} - \max(t_i, u)] + P_{q} [t_s - \max(t_i, u+d)]^+ ] + \\ \textbf{1}_{ \{ u-3 \geq t_i \} } & [(1-P_{q})(1-Sn_P)[t_{s} - \max(t_i,u)]^+ +\\ & \quad P_q (1-Sn_P) [t_s - \max(t_i, u+d)]^+] \end{align*}$
 
 > The expected number of days at risk of community transmission while in the **symptomatic phase** is:
 
+$\begin{align*} \textbf{1}_{ \{ u - 3 < t_i \} } & [ (1-P_{q})(1-P_{is})[t_{r} - \max(t_s, u)] + P_{q} (1-P_{is}) [t_r - \max(t_s, u+d)]^+ ] + \\ \textbf{1}_{ \{ t_i \leq u - 3 < t_s \} } & [ (1-P_{q})((1-Sn_P)(1-P_{is})) [t_r - \max(t_s, u)]^+ \\ & \quad P_{q} ((1-Sn_P)(1-P_{is}))[t_r - \max(t_s, u+d)]^+ ] + \\ \textbf{1}_{ \{ u - 3 \geq t_s \} } &[(1-P_q)((1-Sn_S)(1-P_{is}))[t_r - \max(t_s, u)]^+ \\ & \quad P_q ((1-Sn_S)(1-P_{is})) [t_r - (u+d)]^+] \end{align*}$
 
-$\begin{align*}
-\1_{ \{ u - 3 < t_i \} }            & [ (1-P_{q})(1-P_{is})[t_{r} - \max(t_s, u)] + P_{q} (1-P_{is}) [t_r - \max(t_s, u+d)]^+ ] + \\
-\1_{ \{ t_i \leq u - 3 < t_s \} }   & [ (1-P_{q})((1-Sn_P)(1-P_{is})) [t_r - \max(t_s, u)]^+ \\
-                                & \quad P_{q} ((1-Sn_P)(1-P_{is}))[t_r - \max(t_s, u+d)]^+ ] + \\
-\1_{ \{ u - 3 \geq t_s \} }         &[(1-P_q)((1-Sn_S)(1-P_{is}))[t_r - \max(t_s, u)]^+ \\
-                                & \quad P_q ((1-Sn_S)(1-P_{is})) [t_r - (u+d)]^+]
-\end{align*}$
-
-
-
-
-#####
+##### 
 
 # Supplemental tables
 
 ::: {custom-style="Compact"}
-| **Table S1** Estimated percent of transmission risk reduced for quarantine and testing policies in 11 modeling scenarios. Median and 98% credible interval provided.  Abbreviation: UE, unenforced.
+| **Table S1** Estimated percent of transmission risk reduced for quarantine and testing policies in 11 modeling scenarios. Median and 98% credible interval provided. Abbreviation: UE, unenforced.
 :::
-
-
 
 `r t.riskreduced`
 
-#####
+##### 
 
 ::: {custom-style="Compact"}
-| **Table S2** Expected days at risk of community transmission risk per infectious traveler for quarantine and testing policies in 11 modeling scenarios. Median and 98% credible interval provided.  Abbreviation: UE, unenforced.
+| **Table S2** Expected days at risk of community transmission risk per infectious traveler for quarantine and testing policies in 11 modeling scenarios. Median and 98% credible interval provided. Abbreviation: UE, unenforced.
 :::
-
-
 
 `r t.days_at_risk`
 
-#####
+##### 
 
 ::: {custom-style="Compact"}
-| **Table S3** Expected adjusted days at risk of community transmission risk per infectious traveler for quarantine and testing policies in 11 modeling scenarios. Days at risk for travelers with asymptomatic infections are multiplied by rhe relative transmission risk of asymptomatic as compared to symptomatic infections (49% in base case). Median and 98% credible interval provided.  Abbreviation: UE, unenforced.
+| **Table S3** Expected adjusted days at risk of community transmission risk per infectious traveler for quarantine and testing policies in 11 modeling scenarios. Days at risk for travelers with asymptomatic infections are multiplied by the relative transmission risk of asymptomatic as compared to symptomatic infections (49% in base case). Median and 98% credible interval provided. Abbreviation: UE, unenforced.
 :::
-
-
 
 `r t.adj_days_at_risk`
 
-#####
+##### 
 
 # Supplemental figures
 
-![**Figure S1:** Sample of 100 distributions for durations. Incubation time (top-left) generated using code from Lauer 2020 [@Lauer2020] that generates bootstrapped posterior distributions from a parametric accelerated failure time model calibration. Other distributions generated by varying the mean and variance of distributions from Moghadas 2020 [@Moghadas2020] by ±20% and converting to gamma distribution parameters using the relationships $\mu=ab$ and $\sigma^2=ab^2$ where $\mu$ and $\sigma$ are the mean and variance of the gamma distribution and $a$ and $b$ are the shape and scale parameters. For both symptomatic and asymptomatic infections, duration of the pre-infectious-infectious phase is calculated by subtracting the pre-symptomatic phase duration from the incubation time. If the calculated start of the pre-symptomatic-infectious phase is less than 0.5 days from infection then 0.5 days is used instead.](figs/fig_distribution_sampling.png)
+![**Figure S1:** Schematic of quarantine and infection phases as represented in the model. $t_0$ is the time of infection; $t_i$ is the time infectiousness begins, $t_r$ is the time individuals recover from being infectious, and $t_s$ is the time of symptom onset for those with symptomatic infections. $u$ is the time of arrival and $d$ is the duration of quarantine. Community transmission risk can occur during the mandatory quarantine period for non-compliant travelers or after quarantine for travelers who do not recover before quarantine end. We assume most travelers self-isolate for the duration of the infectious phase after symptom onset or receiving a positive test.](figs/phases_of_infection_and_quarantine.png)
 
+##### 
 
-#####
+![**Figure S2:** Sample of 100 distributions for durations. Incubation time (top-left) generated using code from Lauer 2020 [@Lauer2020] that generates bootstrapped posterior distributions from a parametric accelerated failure time model calibration. Other distributions generated by varying the mean and variance of distributions from Moghadas 2020 [@Moghadas2020] by ±20% and converting to gamma distribution parameters using the relationships $\mu=ab$ and $\sigma^2=ab^2$ where $\mu$ and $\sigma$ are the mean and variance of the gamma distribution and $a$ and $b$ are the shape and scale parameters. For both symptomatic and asymptomatic infections, duration of the pre-infectious-infectious phase is calculated by subtracting the pre-symptomatic phase duration from the incubation time. If the calculated start of the pre-symptomatic-infectious phase is less than 0.5 days from infection, 0.5 days is used instead.](figs/fig_distribution_sampling.png)
 
+##### 
 
-![**Figure S2:** Estimated percent community transmission risk reduced (left) and days of community transmission risk per infected traveler (right) for each quarantine and testing policy in three scenarios with different levels of quarantine and isolation compliance.](figs/compliance_2outcomes.png)
+![**Figure S3:** Estimated percent community transmission risk reduced (left) and days of community transmission risk per infected traveler (right) for each quarantine and testing policy in three scenarios with different levels of quarantine and isolation compliance.](figs/compliance_2outcomes.png)
 
-#####
+##### 
 
+![**Figure S4:** Estimated percent community transmission risk reduced (left) and days of community transmission risk per infected traveler (right) for each quarantine and testing policy in five scenarios with different levels of asymptomatic infection.](figs/perc_asymptomatic_2outcomes.png)
 
-![**Figure S3:** Estimated percent community transmission risk reduced (left) and days of community transmission risk per infected traveler (right) for each quarantine and testing policy in five scenarios with different levels of asymptomatic infection.](figs/perc_asymptomatic_2outcomes.png)
+##### 
 
+![**Figure S5:** Estimated percent community transmission risk reduced (left) and days of community transmission risk per infected traveler (right) for each quarantine and testing policy for a test with 100% sensitivity for all travelers in an infectious phase compared to base case assumption (70% sensitivity for symptomatic infections; 60% sensitivity for asymptomatic infections).](figs/test_sensitivity_2outcomes.png)
 
-#####
+##### 
 
+![**Figure S6:** Estimated percent community transmission risk reduced (left) and days of community transmission risk per infected traveler (right) for each quarantine and testing policy in four scenarios with different assumptions about the distribution of the timing of infections relative to infected travelers' arrival time.](figs/infection_timing_2outcomes.png)
 
-![**Figure S4:** Estimated percent community transmission risk reduced (left) and days of community transmission risk per infected traveler (right) for each quarantine and testing policy for a test with 100% sensitivity for all travelers in an infectious phase compared to base case assumption (70% sensitivity for symptomatic infections; 60% sensitivity for asymptomatic infections).](figs/test_sensitivity_2outcomes.png)
+##### 
 
-
-#####
-
-
-![**Figure S5:** Estimated percent community transmission risk reduced (left) and days of community transmission risk per infected traveler (right) for each quarantine and testing policy in four scenarios with different assumptions about the distribution of the timing of infections relative to infected travelers' arrival time.](figs/infection_timing_2outcomes.png)
-
-#####
-
-![**Figure S6:** Distribution of infection state membership for infected travelers with asymptomatic (left) or symptomatic (right) infection before and after arrival under four different infection timing assumptions. Travelers cannot yet test positive in the 'not yet infected' or 'pre-infectious' states.](figs/disease_state_distributions.png)
-
-
-
+![**Figure S7:** Distribution of infection state membership for infected travelers with asymptomatic (left) or symptomatic (right) infection before and after arrival under four different infection timing assumptions. Travelers cannot yet test positive in the 'not yet infected' or 'pre-infectious' states.](figs/disease_state_distributions.png)

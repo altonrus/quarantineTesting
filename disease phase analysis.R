@@ -1,6 +1,12 @@
+## Code for analyzing and plotting disease phase over time under
+# different assumptions of infection timing WRT arrival time.
+
+
+
 library(data.table)
 library(ggplot2)
-
+library(scales)
+theme_set(theme_bw())
 
 params <- list(
   prob_asympt = 0.4,
@@ -200,7 +206,7 @@ lst_infection_timing <- c("rand_incl_sympt",
                           "rand_nosympt_24hr_before_arrival",
                           "on_arrival")
 
-for (row in 762:params$n_iters){
+for (row in 447:params$n_iters){
   #print(row)
   #[PRE]SYMPOMATIC INFECTION
   #Sample all durations using distribution parameters from outer loop
@@ -277,6 +283,16 @@ for (row in 762:params$n_iters){
 
 
 
+#dt_state_wrt_arrival_plt[time_wrt_arrival==-3 & infection_state %in% c("Not yet infected", "Pre-infectious (undetectable)"), sum(q0.5), by=c("infection_timing", "infection_type")]
+temp<- dt_state_wrt_arrival[infection_state %in% c("Not yet infected", "Pre-infectious (undetectable)"), list(percent = sum(percent)), by=c("iter", "infection_timing", "infection_type", "time_wrt_arrival")]
+temp2 <- temp[ , list(quantile = paste0("q", c(0.01, 0.5, 0.99)),
+                                                         percent = quantile(percent, probs = c(0.01, 0.5, 0.99))), 
+                                                  by=c("infection_timing","infection_type", "time_wrt_arrival")]
+
+temp2[time_wrt_arrival == -3 & quantile == "q0.5"]
+temp2[time_wrt_arrival == 0& quantile == "q0.5"]
+temp2[time_wrt_arrival == -3, min(percent), by=c("quantile")]
+temp2[time_wrt_arrival == 0, min(percent), by=c("quantile")]
 
 infection_timing_states<-c("rand_incl_sympt",
                            "rand_nosympt_24hr_before_arrival",
@@ -317,7 +333,7 @@ ggplot(dt_state_wrt_arrival_plt)+
   scale_y_continuous(labels = percent_format())+
   scale_color_discrete(name="States")+
   scale_x_continuous(breaks = c(-3, 0, 5, 10, 14), minor_breaks = -3:14)+
-  labs(x = "Time in with respect to arrival (in days)",
+  labs(x = "Time with respect to arrival (in days)",
        y = "Percent of infected travelers in state (median and 98% credible interval)")+
     theme(legend.position = "bottom")
 
